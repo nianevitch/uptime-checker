@@ -33,8 +33,36 @@ Then visit `http://localhost:8000` to register, log in, and test session persist
 ### Project structure
 
 - `public/` – Front-end entry points (`login.php`, `register.php`, `dashboard.php`, `logout.php`, `styles.css`)
-- `includes/` – Shared bootstrap, database, authentication, and session helpers
-- `database/schema.sql` – MySQL schema for the `users` table
+- `includes/` – Shared bootstrap, database, authentication, session, and URL helpers
+- `database/schema.sql` – MySQL schema for the `users`, `roles`, and `user_roles` tables
+
+### Managing roles
+
+- New registrations automatically receive the `user` role (stored in `user_roles`).
+- Promote a user to admin directly in MySQL:
+  ```sql
+  INSERT IGNORE INTO roles (name) VALUES ('admin');
+  INSERT IGNORE INTO user_roles (user_id, role_id)
+  SELECT u.id, r.id
+  FROM users u
+  JOIN roles r ON r.name = 'admin'
+  WHERE u.email = 'you@example.com';
+  ```
+- Users can hold multiple roles simultaneously (e.g. both `user` and `admin`).
+- Admins see an “administrator access” banner after logging in (additional admin-only features can be added later).
+
+> Upgrading from the previous single `role` column? Run:
+> ```sql
+> ALTER TABLE users DROP COLUMN role;
+> ```
+> then rerun `database/schema.sql` (or create the new tables manually) and populate `user_roles` as needed.
+
+### Monitoring URLs
+
+- Every user can add, edit, and delete their own monitors at `/urls.php`.
+- Admins see all monitors, can assign owners while creating/editing, and the list displays the owning email.
+- Monitors live in the `monitored_urls` table; `database/schema.sql` seeds Mary with two URLs and Zookeeper (admin) with one default URL.
+- Default seed passwords are `pass`. Change them in the database before deploying anywhere beyond local testing.
 
 ### Security notes
 

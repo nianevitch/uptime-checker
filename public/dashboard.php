@@ -16,6 +16,9 @@ if ($user === false) {
     exit;
 }
 
+$roles = current_user_roles();
+$roleLabel = $roles !== [] ? implode(', ', $roles) : 'None';
+
 function esc(string $value): string
 {
     return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
@@ -33,7 +36,13 @@ function esc(string $value): string
     <main class="container">
         <h1>Welcome</h1>
         <p>You are logged in as <strong><?= esc($user['email']) ?></strong>.</p>
+        <p>Your roles: <strong><?= esc($roleLabel) ?></strong></p>
+        <?php if (is_admin()): ?>
+            <p class="admin-banner">You have administrator access.</p>
+        <?php endif; ?>
         <p>Account created on <?= esc((new DateTimeImmutable($user['created_at']))->format('F j, Y g:i a')) ?>.</p>
+
+        <p><a class="link-button" href="urls.php">Manage monitored URLs</a></p>
 
         <form action="logout.php" method="post">
             <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">

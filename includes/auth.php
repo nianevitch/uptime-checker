@@ -64,6 +64,32 @@ function logout_user(): void
 }
 
 /**
+ * Retrieve the current user's roles from the session.
+ */
+function current_user_roles(): array
+{
+    $roles = $_SESSION['user_roles'] ?? [];
+
+    return is_array($roles) ? $roles : [];
+}
+
+/**
+ * Check whether the current user is an administrator.
+ */
+function is_admin(): bool
+{
+    return user_has_role('admin');
+}
+
+/**
+ * Check whether the user has a specific role.
+ */
+function user_has_role(string $role): bool
+{
+    return in_array($role, current_user_roles(), true);
+}
+
+/**
  * Attempt to register a user. Returns [bool success, string|null error].
  */
 function register_user(\PDO $pdo, string $email, string $password): array
@@ -84,6 +110,8 @@ function register_user(\PDO $pdo, string $email, string $password): array
             return [false, 'An account with that email already exists.'];
         }
 
+        $pdo->beginTransaction();
+
         $hash = password_hash($password, PASSWORD_DEFAULT);
         $stmt = $pdo->prepare('INSERT INTO users (email, password_hash) VALUES (:email, :password_hash)');
         $stmt->execute([
@@ -91,8 +119,19 @@ function register_user(\PDO $pdo, string $email, string $password): array
             ':password_hash' => $hash,
         ]);
 
+        $userId = (int) $pdo->lastInsertId();
+        if (!assign_role($pdo, $userId, 'user')) {
+            $pdo->rollBack();
+            return [false, 'Registration failed. Please contact support.'];
+        }
+
+        $pdo->commit();
+
         return [true, null];
-    } catch (\PDOException $e) {
+    } catch (\Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log('Registration failed: ' . $e->getMessage());
         return [false, 'Registration failed. Please try again.'];
     }
@@ -119,6 +158,13 @@ function login_user(\PDO $pdo, string $email, string $password): array
         $_SESSION['user_id'] = (int) $user['id'];
         $_SESSION['user_email'] = $user['email'];
 
+        $roles = fetch_user_roles($pdo, (int) $user['id']);
+        if (empty($roles)) {
+            assign_role($pdo, (int) $user['id'], 'user');
+            $roles = fetch_user_roles($pdo, (int) $user['id']);
+        }
+        $_SESSION['user_roles'] = $roles;
+
         return [true, null];
     } catch (\PDOException $e) {
         error_log('Login failed: ' . $e->getMessage());
@@ -136,5 +182,54 @@ function find_user_by_email(\PDO $pdo, string $email): ?array
     $user = $stmt->fetch();
 
     return $user === false ? null : $user;
+}
+
+/**
+ * Fetch the distinct role names assigned to a user.
+ */
+function fetch_user_roles(\PDO $pdo, int $userId): array
+{
+    $stmt = $pdo->prepare(
+        'SELECT r.name
+         FROM user_roles ur
+         INNER JOIN roles r ON r.id = ur.role_id
+         WHERE ur.user_id = :user_id'
+    );
+    $stmt->execute([':user_id' => $userId]);
+
+    return array_values(array_unique(array_column($stmt->fetchAll(), 'name')));
+}
+
+/**
+ * Assign a role to a user. Returns false if the role name is unknown.
+ */
+function assign_role(\PDO $pdo, int $userId, string $roleName): bool
+{
+    $roleId = get_role_id($pdo, $roleName);
+    if ($roleId === null) {
+        error_log(sprintf('Role "%s" does not exist.', $roleName));
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'INSERT IGNORE INTO user_roles (user_id, role_id) VALUES (:user_id, :role_id)'
+    );
+
+    return $stmt->execute([
+        ':user_id' => $userId,
+        ':role_id' => $roleId,
+    ]);
+}
+
+/**
+ * Resolve a role name to its identifier.
+ */
+function get_role_id(\PDO $pdo, string $roleName): ?int
+{
+    $stmt = $pdo->prepare('SELECT id FROM roles WHERE name = :name LIMIT 1');
+    $stmt->execute([':name' => $roleName]);
+    $role = $stmt->fetch();
+
+    return $role === false ? null : (int) $role['id'];
 }
 
