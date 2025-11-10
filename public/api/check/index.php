@@ -9,7 +9,7 @@ $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 if ($method === 'GET') {
     header('Content-Type: application/json');
     try {
-        $count = extract_count_from_uri($_SERVER['REQUEST_URI'] ?? '');
+        $count = resolve_requested_count($_SERVER['REQUEST_URI'] ?? '');
         $jobs = fetch_checks_for_agent($pdo, $count);
         echo json_encode($jobs);
     } catch (Throwable $e) {
@@ -50,8 +50,17 @@ http_response_code(405);
 header('Content-Type: application/json');
 echo json_encode(['error' => 'Method not allowed']);
 
-function extract_count_from_uri(string $uri): int
+function resolve_requested_count(string $uri): int
 {
+    $queryCount = filter_input(INPUT_GET, 'count', FILTER_VALIDATE_INT, [
+        'options' => ['min_range' => 1, 'max_range' => 100],
+    ]);
+
+    if ($queryCount !== false && $queryCount !== null) {
+        return (int) $queryCount;
+    }
+
+    // Backwards compatibility for routes like /api/check/10
     $path = parse_url($uri, PHP_URL_PATH) ?? '';
     $segments = array_values(array_filter(explode('/', trim($path, '/'))));
 

@@ -32,7 +32,7 @@ Then visit `http://localhost:8000` to register, log in, and test session persist
 
 ### Project structure
 
-- `public/` – Front-end entry points (`login.php`, `register.php`, `dashboard.php`, `logout.php`, `styles.css`)
+- `public/` – Front-end entry points (`login.php`, `register.php`, `logout.php`, `urls.php`, `styles.css`)
 - `includes/` – Shared bootstrap, database, authentication, session, and URL helpers
 - `database/schema.sql` – MySQL schema for the `users`, `roles`, `user_roles`, `monitored_urls`, and `check_results` tables
 
@@ -59,19 +59,18 @@ Then visit `http://localhost:8000` to register, log in, and test session persist
 
 ### Monitoring URLs
 
-- Every user can add, edit, and delete their own monitors at `/urls.php`.
+- Every user can add, edit, and delete their own monitors at `urls.php`.
 - Admins see all monitors, can assign owners while creating/editing, and the list displays the owning email.
 - Monitors live in the `monitored_urls` table; `database/schema.sql` seeds Mary with two URLs and Zookeeper (admin) with one default URL.
-- Each monitor row has a **Check** button that triggers an on-demand uptime test by POSTing to `/api/check` and records the response in `check_results`.
-- Use the **Run checks** form to execute uptime checks for every URL owned by the current user (or any user if you’re an admin); results are stored immediately in `check_results`.
-- The “Recent checks” table shows the 10 latest uptime results visible to the current user (admins see everyone’s results).
-- Each monitor stores a `frequency_minutes` interval, a calculated `next_check_at`, and an `in_progress` flag indicating whether a check is currently being processed by the agent.
+- Use the **Run checks** form to hand a batch of monitors to the agent for processing (current user by default, or any user if you’re an admin).
+- Checks are dispatched to external agents through the API; once results are posted back, they appear in the **Recent checks** table (latest 10 visible to the current user, with admins seeing all results).
+- Each monitor stores a `frequency_minutes` interval, a calculated `next_check_at`, and an `in_progress` flag indicating whether a check is currently being processed by an agent.
 - Default seed passwords are `pass`. Change them in the database before deploying anywhere beyond local testing.
 
 ### Uptime agent API
 
-- `GET /api/check/{count}` – returns up to `{count}` JSON payloads (each with `id` and `url`) for the agent to process. Monitors picked up have their `in_progress` flag set to `1`.
-- `POST /api/check` – accepts a JSON body containing at least `id` and either `response_time_ms` or `response_time` plus an optional `http_code`, `error`, and `checked_at`. The server records the result, updates `next_check_at`, and clears the `in_progress` flag.
+- `GET /api/check/index.php?count={N}` – returns up to `{N}` JSON payloads (each with `id` and `url`) for the agent to process. Monitors picked up have their `in_progress` flag set to `1`.
+- `POST /api/check/index.php` – accepts a JSON body containing at least `id` and either `response_time_ms` or `response_time` plus an optional `http_code`, `error`, and `checked_at`. The server records the result, updates `next_check_at`, and clears the `in_progress` flag.
 
 ### Security notes
 

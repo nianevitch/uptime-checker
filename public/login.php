@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/bootstrap.php';
 
 if (is_logged_in()) {
-    header('Location: dashboard.php');
+    header('Location: /urls.php');
     exit;
 }
 
@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         [$success, $message] = login_user(get_pdo(), $email, $password);
         if ($success) {
-            header('Location: dashboard.php');
+            header('Location: /urls.php');
             exit;
         }
         $error = $message;
@@ -67,4 +67,3 @@ function esc(string $value): string
     </main>
 </body>
 </html>
-

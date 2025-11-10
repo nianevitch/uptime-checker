@@ -9,6 +9,25 @@ $pdo = get_pdo();
 $currentUserId = (int) $_SESSION['user_id'];
 $isAdmin = is_admin();
 
+$stmt = $pdo->prepare('SELECT email, created_at FROM users WHERE id = :id LIMIT 1');
+$stmt->execute([':id' => $currentUserId]);
+$user = $stmt->fetch();
+
+$pageTitle = 'Monitored URLs';
+$pageHeading = 'Monitored URLs';
+
+if ($user === false) {
+    logout_user();
+    header('Location: /login.php');
+    exit;
+}
+
+$roles = current_user_roles();
+$roleLabel = $roles !== [] ? implode(', ', $roles) : 'None';
+$userInitial = isset($user['email']) && $user['email'] !== '' ? strtoupper(substr($user['email'], 0, 1)) : '?';
+$createdAtRaw = $user['created_at'] ?? null;
+$createdAtDisplay = $createdAtRaw ? (new DateTimeImmutable($createdAtRaw))->format('F j, Y g:i a') : 'Unknown';
+
 $errors = [];
 $success = null;
 
@@ -161,14 +180,33 @@ function format_datetime(?string $value): string
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitored URLs</title>
+    <title><?= esc($pageTitle ?? 'Uptime Checker') ?></title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+    <header class="site-header">
+        <div class="header-left">
+            <a class="logo" href="urls.php">
+                <img src="assets/logo.png" alt="Uptime Checker Logo">
+                <span>Uptime Checker</span>
+            </a>
+        </div>
+        <nav class="header-nav">
+            <a href="urls.php" class="nav-link active">Home</a>
+            <a href="urls.php" class="nav-link">Monitors</a>
+        </nav>
+        <div class="header-right">
+            <button type="button" class="profile-avatar" id="open-profile-modal" aria-haspopup="dialog" aria-controls="profile-modal">
+                <?= esc($userInitial) ?>
+            </button>
+            <form action="logout.php" method="post">
+                <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
+                <button type="submit" class="logout-button">Logout</button>
+            </form>
+        </div>
+    </header>
     <main class="container">
         <h1>Monitored URLs</h1>
-
-        <p><a class="link-button" href="dashboard.php">&larr; Back to dashboard</a></p>
 
         <?php if (!empty($errors)): ?>
             <div class="alert alert-error">
@@ -182,55 +220,12 @@ function format_datetime(?string $value): string
             <div class="alert alert-success"><?= esc($success) ?></div>
         <?php endif; ?>
 
-        <section class="card">
-            <h2><?= $editMonitor ? 'Edit monitor' : 'Add a monitor' ?></h2>
-            <form method="post" class="stacked-form" novalidate>
-                <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
-                <input type="hidden" name="action" value="<?= $editMonitor ? 'update' : 'create' ?>">
-                <?php if ($editMonitor): ?>
-                    <input type="hidden" name="id" value="<?= esc((string) $editMonitor['id']) ?>">
-                <?php endif; ?>
-
-                <?php if ($isAdmin): ?>
-                    <div class="field">
-                        <label for="owner_id">Owner</label>
-                        <select id="owner_id" name="owner_id" required>
-                            <option value="">Select a user</option>
-                            <?php foreach ($users as $user): ?>
-                                <option value="<?= esc((string) $user['id']) ?>" <?= selected((int) $user['id'], $selectedOwnerId) ?>>
-                                    <?= esc($user['email']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                <?php endif; ?>
-
-                <div class="field">
-                    <label for="label">Label (optional)</label>
-                    <input type="text" id="label" name="label" maxlength="190"
-                           value="<?= esc($formLabel) ?>">
-                </div>
-
-                <div class="field">
-                    <label for="url">URL</label>
-                    <input type="url" id="url" name="url" required maxlength="255"
-                           value="<?= esc($formUrl) ?>">
-                </div>
-
-                <div class="field">
-                    <label for="frequency_minutes">Frequency (minutes)</label>
-                    <input type="number" id="frequency_minutes" name="frequency_minutes" min="1" max="1440" required
-                           value="<?= esc((string) $formFrequency) ?>">
-                </div>
-
-                <div class="actions">
-                    <button type="submit"><?= $editMonitor ? 'Update monitor' : 'Add monitor' ?></button>
-                    <?php if ($editMonitor): ?>
-                        <a href="urls.php" class="link">Cancel</a>
-                    <?php endif; ?>
-                </div>
-            </form>
-        </section>
+        <div class="page-actions">
+            <button type="button" class="primary-button" id="open-monitor-modal">Add monitor</button>
+            <?php if ($editMonitor): ?>
+                <a href="urls.php" class="link secondary-link">Exit edit mode</a>
+            <?php endif; ?>
+        </div>
 
         <section class="card">
             <h2>Existing monitors</h2>
@@ -339,6 +334,141 @@ function format_datetime(?string $value): string
             <?php endif; ?>
         </section>
     </main>
+
+    <div class="modal" id="monitor-modal" aria-hidden="true" data-initial-focus="input[name='label']">
+        <div class="modal__overlay" data-close-modal></div>
+        <div class="modal__content" role="dialog" aria-modal="true" aria-labelledby="monitor-modal-title">
+            <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+            <h2 id="monitor-modal-title"><?= $editMonitor ? 'Edit monitor' : 'Add a monitor' ?></h2>
+            <form method="post" class="stacked-form modal-form" novalidate>
+                <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
+                <input type="hidden" name="action" value="<?= $editMonitor ? 'update' : 'create' ?>">
+                <?php if ($editMonitor): ?>
+                    <input type="hidden" name="id" value="<?= esc((string) $editMonitor['id']) ?>">
+                <?php endif; ?>
+
+                <?php if ($isAdmin): ?>
+                    <div class="field">
+                        <label for="owner_id">Owner</label>
+                        <select id="owner_id" name="owner_id" required>
+                            <option value="">Select a user</option>
+                            <?php foreach ($users as $user): ?>
+                                <option value="<?= esc((string) $user['id']) ?>" <?= selected((int) $user['id'], $selectedOwnerId) ?>>
+                                    <?= esc($user['email']) ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
+
+                <div class="field">
+                    <label for="label">Label (optional)</label>
+                    <input type="text" id="label" name="label" maxlength="190"
+                           value="<?= esc($formLabel) ?>">
+                </div>
+
+                <div class="field">
+                    <label for="url">URL</label>
+                    <input type="url" id="url" name="url" required maxlength="255"
+                           value="<?= esc($formUrl) ?>">
+                </div>
+
+                <div class="field">
+                    <label for="frequency_minutes">Frequency (minutes)</label>
+                    <input type="number" id="frequency_minutes" name="frequency_minutes" min="1" max="1440" required
+                           value="<?= esc((string) $formFrequency) ?>">
+                </div>
+
+                <div class="actions modal-actions">
+                    <button type="submit"><?= $editMonitor ? 'Update monitor' : 'Add monitor' ?></button>
+                    <button type="button" class="link" data-close-modal>Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="modal" id="profile-modal" aria-hidden="true">
+        <div class="modal__overlay" data-close-modal></div>
+        <div class="modal__content modal__content--small" role="dialog" aria-modal="true" aria-labelledby="profile-modal-title">
+            <button type="button" class="modal__close" data-close-modal aria-label="Close">×</button>
+            <h2 id="profile-modal-title">Account overview</h2>
+            <div class="modal__section">
+                <h3>Email</h3>
+                <p><?= esc($user['email']) ?></p>
+            </div>
+            <div class="modal__section">
+                <h3>Roles</h3>
+                <p><?= esc($roleLabel) ?></p>
+                <?php if ($isAdmin): ?>
+                    <p class="modal__note">You currently have administrator access.</p>
+                <?php endif; ?>
+            </div>
+            <div class="modal__section">
+                <h3>Member since</h3>
+                <p><?= esc($createdAtDisplay) ?></p>
+            </div>
+            <div class="actions modal-actions">
+                <button type="button" class="link" data-close-modal>Close</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    (function () {
+        const initModal = (triggerSelector, modalSelector, autoOpen = false) => {
+            const modal = document.querySelector(modalSelector);
+            if (!modal) {
+                return;
+            }
+
+            const trigger = triggerSelector ? document.querySelector(triggerSelector) : null;
+            const overlay = modal.querySelector('.modal__overlay');
+            const closeTriggers = modal.querySelectorAll('[data-close-modal]');
+            const initialFocusSelector = modal.getAttribute('data-initial-focus') || 'input:not([type="hidden"]), select, textarea, button';
+
+            const openModal = () => {
+                modal.classList.add('is-visible');
+                document.body.classList.add('modal-open');
+                const focusTarget = modal.querySelector(initialFocusSelector);
+                if (focusTarget) {
+                    focusTarget.focus();
+                }
+            };
+
+            const closeModal = () => {
+                modal.classList.remove('is-visible');
+                if (!document.querySelector('.modal.is-visible')) {
+                    document.body.classList.remove('modal-open');
+                }
+            };
+
+            if (trigger) {
+                trigger.addEventListener('click', openModal);
+            }
+
+            closeTriggers.forEach((el) => {
+                el.addEventListener('click', closeModal);
+            });
+
+            if (overlay) {
+                overlay.addEventListener('click', closeModal);
+            }
+
+            document.addEventListener('keydown', (event) => {
+                if (event.key === 'Escape' && modal.classList.contains('is-visible')) {
+                    closeModal();
+                }
+            });
+
+            if (autoOpen) {
+                openModal();
+            }
+        };
+
+        initModal('#open-monitor-modal', '#monitor-modal', <?= $editMonitor ? 'true' : 'false' ?>);
+        initModal('#open-profile-modal', '#profile-modal');
+    })();
+    </script>
 </body>
 </html>
 

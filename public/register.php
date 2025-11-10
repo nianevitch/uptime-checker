@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/bootstrap.php';
 
 if (is_logged_in()) {
-    header('Location: dashboard.php');
+    header('Location: /urls.php');
     exit;
 }
 
@@ -81,4 +81,3 @@ function esc(string $value): string
     </main>
 </body>
 </html>
-
