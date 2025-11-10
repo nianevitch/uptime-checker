@@ -67,12 +67,29 @@ CREATE TABLE IF NOT EXISTS `monitored_urls` (
   `user_id` INT UNSIGNED NOT NULL,
   `label` VARCHAR(190) DEFAULT NULL,
   `url` VARCHAR(255) NOT NULL,
+  `frequency_minutes` INT UNSIGNED NOT NULL DEFAULT 5,
+  `next_check_at` DATETIME DEFAULT NULL,
+  `in_progress` TINYINT(1) NOT NULL DEFAULT 0,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_user_url` (`user_id`, `url`),
   CONSTRAINT `fk_monitored_urls_user`
     FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `check_results` (
+  `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `monitored_url_id` INT UNSIGNED NOT NULL,
+  `http_code` SMALLINT UNSIGNED DEFAULT NULL,
+  `error_message` TEXT DEFAULT NULL,
+  `response_time_ms` DECIMAL(10,2) DEFAULT NULL,
+  `checked_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_check_results_url` (`monitored_url_id`, `checked_at`),
+  CONSTRAINT `fk_check_results_url`
+    FOREIGN KEY (`monitored_url_id`) REFERENCES `monitored_urls` (`id`)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -90,6 +107,97 @@ ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
 
 INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
 SELECT u.id, 'Admin Portal', 'https://admin.invoken.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+-- Additional seed monitors
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Google', 'https://www.google.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'YouTube', 'https://www.youtube.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Gmail', 'https://mail.google.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Google News', 'https://news.google.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Google Maps', 'https://maps.google.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Yahoo', 'https://www.yahoo.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Yahoo Finance', 'https://finance.yahoo.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Yahoo Mail', 'https://mail.yahoo.com'
+FROM users u
+WHERE u.email = 'mary@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Microsoft', 'https://www.microsoft.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Bing', 'https://www.bing.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Outlook', 'https://outlook.live.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'LinkedIn', 'https://www.linkedin.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'GitHub', 'https://github.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Stack Overflow', 'https://stackoverflow.com'
+FROM users u
+WHERE u.email = 'zookeeper@invoken.com'
+ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);
+
+INSERT INTO `monitored_urls` (`user_id`, `label`, `url`)
+SELECT u.id, 'Wikipedia', 'https://www.wikipedia.org'
 FROM users u
 WHERE u.email = 'zookeeper@invoken.com'
 ON DUPLICATE KEY UPDATE `label` = VALUES(`label`), `url` = VALUES(`url`);

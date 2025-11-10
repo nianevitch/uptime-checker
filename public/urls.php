@@ -11,7 +11,6 @@ $isAdmin = is_admin();
 
 $errors = [];
 $success = null;
-$uptimeResult = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $token = $_POST['csrf_token'] ?? null;
@@ -24,11 +23,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $ownerId = $isAdmin ? (int) ($_POST['owner_id'] ?? 0) : $currentUserId;
             $url = (string) ($_POST['url'] ?? '');
             $label = isset($_POST['label']) ? (string) $_POST['label'] : null;
+            $frequency = (int) ($_POST['frequency_minutes'] ?? 5);
 
             if ($ownerId <= 0) {
                 $errors[] = 'Please select a valid owner for the URL.';
             } else {
-                [$ok, $message] = create_monitored_url($pdo, $ownerId, $url, $label);
+                [$ok, $message] = create_monitored_url($pdo, $ownerId, $url, $label, $frequency);
                 if ($ok) {
                     $success = 'Monitor created.';
                 } else {
@@ -47,8 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $ownerId = $isAdmin ? (int) ($_POST['owner_id'] ?? $urlRow['user_id']) : (int) $urlRow['user_id'];
                 $url = (string) ($_POST['url'] ?? '');
                 $label = isset($_POST['label']) ? (string) $_POST['label'] : null;
+                $frequency = (int) ($_POST['frequency_minutes'] ?? ($urlRow['frequency_minutes'] ?? 5));
 
-                [$ok, $message] = update_monitored_url($pdo, $id, $ownerId, $url, $label);
+                [$ok, $message] = update_monitored_url($pdo, $id, $ownerId, $url, $label, $frequency);
                 if ($ok) {
                     $success = 'Monitor updated.';
                 } else {
@@ -80,11 +81,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (!can_modify_url($urlRow, $currentUserId, $isAdmin)) {
                 $errors[] = 'You are not allowed to check that monitor.';
             } else {
-                $uptimeResult = [
-                    'monitor' => $urlRow,
-                    'result' => check_url_uptime($urlRow['url']),
-                ];
-                $success = 'Uptime check completed.';
+                if (schedule_monitor_check($pdo, (int) $urlRow['id'])) {
+                    $success = 'Check scheduled. Results will appear after the agent reports back.';
+                } else {
+                    $errors[] = 'Monitor is already being processed or unavailable.';
+                }
+            }
+        } elseif ($action === 'run_all') {
+            $targetUserId = $isAdmin ? (int) ($_POST['target_user_id'] ?? 0) : $currentUserId;
+
+            if ($targetUserId <= 0) {
+                $errors[] = 'Please select a user to run checks for.';
+            } elseif (!$isAdmin && $targetUserId !== $currentUserId) {
+                $errors[] = 'You can only run checks for your own monitors.';
+            } else {
+                $scheduled = schedule_checks_for_user($pdo, $targetUserId);
+                if ($scheduled === 0) {
+                    $success = 'No monitors available to schedule right now.';
+                } else {
+                    $success = sprintf('Scheduled %d monitor check(s).', $scheduled);
+                }
             }
         } else {
             $errors[] = 'Unknown action.';
@@ -110,6 +126,10 @@ $selectedOwnerId = $editMonitor
     : ($isAdmin ? (int) ($_POST['owner_id'] ?? 0) : $currentUserId);
 $formLabel = $editMonitor['label'] ?? (string) ($_POST['label'] ?? '');
 $formUrl = $editMonitor['url'] ?? (string) ($_POST['url'] ?? '');
+$formFrequency = isset($editMonitor['frequency_minutes'])
+    ? (string) $editMonitor['frequency_minutes']
+    : (isset($_POST['frequency_minutes']) ? (string) $_POST['frequency_minutes'] : '5');
+$recentResults = fetch_recent_uptime_results($pdo, $currentUserId, $isAdmin, 10);
 
 function esc(string $value): string
 {
@@ -119,6 +139,21 @@ function esc(string $value): string
 function selected(int $left, int $right): string
 {
     return $left === $right ? 'selected' : '';
+}
+
+function format_datetime(?string $value): string
+{
+    if (!is_string($value) || trim($value) === '') {
+        return '—';
+    }
+
+    $timestamp = strtotime($value);
+
+    if ($timestamp === false) {
+        return '—';
+    }
+
+    return date('Y-m-d H:i', $timestamp);
 }
 ?>
 <!DOCTYPE html>
@@ -145,26 +180,6 @@ function selected(int $left, int $right): string
             </div>
         <?php elseif ($success !== null): ?>
             <div class="alert alert-success"><?= esc($success) ?></div>
-        <?php endif; ?>
-
-        <?php if ($uptimeResult !== null): ?>
-            <?php
-                $monitor = $uptimeResult['monitor'];
-                $result = $uptimeResult['result'];
-                $checkedAt = DateTimeImmutable::createFromFormat(DateTimeInterface::ATOM, $result['checked_at']) ?: new DateTimeImmutable();
-            ?>
-            <section class="card">
-                <h2>Latest uptime check</h2>
-                <p><strong>Label:</strong> <?= esc($monitor['label'] ?? '—') ?></p>
-                <p><strong>URL:</strong> <a href="<?= esc($monitor['url']) ?>" target="_blank" rel="noopener"><?= esc($monitor['url']) ?></a></p>
-                <p><strong>Status:</strong> <?= esc($result['status']) ?></p>
-                <p><strong>HTTP code:</strong> <?= esc((string) ($result['http_code'] ?? 'N/A')) ?></p>
-                <p><strong>Response time:</strong> <?= esc($result['response_time'] !== null ? $result['response_time'] . ' ms' : 'N/A') ?></p>
-                <p><strong>Checked at:</strong> <?= esc($checkedAt->format('Y-m-d H:i:s')) ?></p>
-                <?php if (!empty($result['error'])): ?>
-                    <p class="alert alert-error"><strong>Error:</strong> <?= esc($result['error']) ?></p>
-                <?php endif; ?>
-            </section>
         <?php endif; ?>
 
         <section class="card">
@@ -202,6 +217,12 @@ function selected(int $left, int $right): string
                            value="<?= esc($formUrl) ?>">
                 </div>
 
+                <div class="field">
+                    <label for="frequency_minutes">Frequency (minutes)</label>
+                    <input type="number" id="frequency_minutes" name="frequency_minutes" min="1" max="1440" required
+                           value="<?= esc((string) $formFrequency) ?>">
+                </div>
+
                 <div class="actions">
                     <button type="submit"><?= $editMonitor ? 'Update monitor' : 'Add monitor' ?></button>
                     <?php if ($editMonitor): ?>
@@ -213,6 +234,23 @@ function selected(int $left, int $right): string
 
         <section class="card">
             <h2>Existing monitors</h2>
+            <form method="post" class="stacked-form">
+                <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
+                <input type="hidden" name="action" value="run_all">
+                <?php if ($isAdmin): ?>
+                    <div class="field">
+                        <label for="target_user_id">Run checks for user</label>
+                        <select name="target_user_id" id="target_user_id">
+                            <option value="">Select user</option>
+                            <?php foreach ($users as $user): ?>
+                                <option value="<?= esc((string) $user['id']) ?>"><?= esc($user['email']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                <?php endif; ?>
+                <button type="submit">Run checks</button>
+                <p class="form-help">Checks are handed to the agent; results appear once processed.</p>
+            </form>
             <?php if (empty($monitors)): ?>
                 <p>No monitors yet.</p>
             <?php else: ?>
@@ -222,6 +260,9 @@ function selected(int $left, int $right): string
                             <tr>
                                 <th>Label</th>
                                 <th>URL</th>
+                                <th>Frequency (min)</th>
+                                <th>In progress</th>
+                                <th>Next check</th>
                                 <?php if ($isAdmin): ?>
                                     <th>Owner</th>
                                 <?php endif; ?>
@@ -234,17 +275,14 @@ function selected(int $left, int $right): string
                             <tr>
                                 <td><?= esc($monitor['label'] ?? '—') ?></td>
                                 <td><a href="<?= esc($monitor['url']) ?>" target="_blank" rel="noopener"><?= esc($monitor['url']) ?></a></td>
+                                <td><?= esc((string) ($monitor['frequency_minutes'] ?? '—')) ?></td>
+                                <td><?= esc(!empty($monitor['in_progress']) ? 'Yes' : 'No') ?></td>
+                                <td><?= esc(format_datetime($monitor['next_check_at'] ?? null)) ?></td>
                                 <?php if ($isAdmin): ?>
                                     <td><?= esc($monitor['owner_email']) ?></td>
                                 <?php endif; ?>
                                 <td><?= esc((new DateTimeImmutable($monitor['updated_at']))->format('Y-m-d H:i')) ?></td>
                                 <td class="table-actions">
-                                    <form method="post" class="inline-form">
-                                        <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
-                                        <input type="hidden" name="action" value="check">
-                                        <input type="hidden" name="id" value="<?= esc((string) $monitor['id']) ?>">
-                                        <button type="submit" class="link">Check</button>
-                                    </form>
                                     <a class="link" href="urls.php?edit=<?= esc((string) $monitor['id']) ?>">Edit</a>
                                     <form method="post" class="inline-form" onsubmit="return confirm('Delete this monitor?');">
                                         <input type="hidden" name="csrf_token" value="<?= esc(csrf_token()) ?>">
@@ -253,6 +291,46 @@ function selected(int $left, int $right): string
                                         <button type="submit" class="link link-danger">Delete</button>
                                     </form>
                                 </td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section class="card">
+            <h2>Recent checks</h2>
+            <?php if (empty($recentResults)): ?>
+                <p>No checks recorded yet.</p>
+            <?php else: ?>
+                <div class="table-wrapper">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <?php if ($isAdmin): ?>
+                                    <th>Owner</th>
+                                <?php endif; ?>
+                                <th>Status</th>
+                                <th>HTTP code</th>
+                                <th>Error</th>
+                                <th>Response time</th>
+                                <th>Checked at</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($recentResults as $row): ?>
+                            <tr>
+                                <td><?= esc($row['url']) ?></td>
+                                <?php if ($isAdmin): ?>
+                                    <td><?= esc($row['owner_email']) ?></td>
+                                <?php endif; ?>
+                                <td><?= esc($row['status']) ?></td>
+                                <td><?= esc((string) ($row['http_code'] ?? 'N/A')) ?></td>
+                                <td><?= esc($row['error_message'] ?? '—') ?></td>
+                                <td><?= esc($row['response_time_ms'] !== null ? $row['response_time_ms'] . ' ms' : 'N/A') ?></td>
+                                <td><?= esc((new DateTimeImmutable($row['checked_at']))->format('Y-m-d H:i:s')) ?></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>

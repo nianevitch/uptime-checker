@@ -127,6 +127,12 @@ a:hover {
     font-size: 1rem;
 }
 
+.form-help {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    color: #6b7280;
+}
+
 .table-wrapper {
     overflow-x: auto;
 }
@@ -185,5 +191,10 @@ a:hover {
     list-style: none;
     padding: 0;
     margin: 0;
+}
+
+button[disabled] {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
