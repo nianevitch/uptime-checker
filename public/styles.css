@@ -7,6 +7,7 @@ body {
 }
 
 .container {
+    width: 100%;
     max-width: 400px;
     margin: 4rem auto;
     padding: 2.5rem;
@@ -196,5 +197,31 @@ a:hover {
 button[disabled] {
     opacity: 0.5;
     cursor: not-allowed;
+}
+
+@media (min-width: 1024px) {
+    .container {
+        max-width: 80vw;
+        width: 80vw;
+        padding: 3rem;
+    }
+
+    .monitors-table {
+        width: 80%;
+        margin: 0 auto;
+    }
+}
+
+@media (min-width: 600px) and (max-width: 1023px) and (orientation: landscape) {
+    .container {
+        width: 90vw;
+        max-width: 90vw;
+        padding: 2.5rem;
+    }
+
+    .monitors-table {
+        width: 90%;
+        margin: 0 auto;
+    }
 }
 

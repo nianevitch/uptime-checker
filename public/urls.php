@@ -254,7 +254,7 @@ function format_datetime(?string $value): string
             <?php if (empty($monitors)): ?>
                 <p>No monitors yet.</p>
             <?php else: ?>
-                <div class="table-wrapper">
+                <div class="table-wrapper monitors-table">
                     <table class="table">
                         <thead>
                             <tr>
