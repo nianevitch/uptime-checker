@@ -1,0 +1,89 @@
+<section class="monitors">
+  <header class="monitors__header">
+    <h1>Your monitors</h1>
+    <div class="actions">
+      <button class="primary" (click)="startCreate()">New monitor</button>
+    </div>
+  </header>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="success" class="alert alert-success">{{ success }}</div>
+
+  <section class="form-card">
+    <h2>{{ selectedMonitor ? 'Edit monitor' : 'Add a monitor' }}</h2>
+    <form [formGroup]="form" (ngSubmit)="submit()">
+      <div class="grid">
+        <label>
+          URL
+          <input type="url" formControlName="url" required />
+        </label>
+        <label>
+          Label
+          <input type="text" formControlName="label" maxlength="190" />
+        </label>
+        <label>
+          Frequency (minutes)
+          <input type="number" formControlName="frequencyMinutes" min="1" max="1440" />
+        </label>
+      </div>
+      <button type="submit" class="primary">
+        {{ selectedMonitor ? 'Update monitor' : 'Create monitor' }}
+      </button>
+    </form>
+  </section>
+
+  <section class="monitors-list">
+    <div *ngIf="isLoading" class="loading">Loading monitors…</div>
+
+    <div *ngIf="!isLoading && monitors.length === 0" class="empty">
+      No monitors yet. Create one above to get started.
+    </div>
+
+    <div *ngIf="!isLoading && monitors.length > 0" class="grid-list">
+      <article class="monitor-card" *ngFor="let monitor of monitors">
+        <header>
+          <h3>{{ monitor.label || monitor.url }}</h3>
+          <span class="badge" [class.badge--active]="monitor.inProgress">
+            {{ monitor.inProgress ? 'In progress' : 'Ready' }}
+          </span>
+        </header>
+        <p class="url">{{ monitor.url }}</p>
+        <dl>
+          <div>
+            <dt>Frequency</dt>
+            <dd>{{ monitor.frequencyMinutes }} min</dd>
+          </div>
+          <div>
+            <dt>Next check</dt>
+            <dd>{{ monitor.nextCheckAt ? (monitor.nextCheckAt | date: 'short') : '—' }}</dd>
+          </div>
+        </dl>
+        <section class="results">
+          <h4>Recent checks</h4>
+          <ul>
+            <li *ngFor="let result of monitor.recentResults">
+              <span>{{ result.checkedAt | date: 'short' }}</span>
+              <span *ngIf="result.httpCode !== undefined && result.httpCode !== null">HTTP {{ result.httpCode }}</span>
+              <span *ngIf="result.httpCode === undefined || result.httpCode === null">
+                {{ result.errorMessage ? 'Error' : 'No response' }}
+              </span>
+              <span *ngIf="result.responseTimeMs !== undefined && result.responseTimeMs !== null">
+                {{ result.responseTimeMs | number: '1.0-0' }} ms
+              </span>
+              <span class="error" *ngIf="result.errorMessage">{{ result.errorMessage }}</span>
+            </li>
+            <li *ngIf="monitor.recentResults.length === 0">No checks recorded yet.</li>
+          </ul>
+        </section>
+        <footer class="card-actions">
+          <button class="secondary" (click)="editMonitor(monitor)">Edit</button>
+          <button class="secondary" (click)="runCheck(monitor.id)" [disabled]="monitor.inProgress">
+            Run check
+          </button>
+          <button class="danger" (click)="deleteMonitor(monitor.id)">Delete</button>
+        </footer>
+      </article>
+    </div>
+  </section>
+</section>
+

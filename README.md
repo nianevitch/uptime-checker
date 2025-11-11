@@ -1,87 +1,163 @@
-## Simple PHP User Management
+## Uptime Checker – Spring Boot + Angular rewrite
 
-This project provides a minimal PHP user registration and login flow with password hashing, CSRF protection, and session management. It targets a classic LAMP stack (PHP 8.1+, MySQL 8+, Apache or Nginx).
+This repository now hosts a full-stack uptime monitoring system composed of:
 
-### 1. Configure the database
+- **Spring Boot (Java 21)** backend with Spring Security, JWT authentication, and REST APIs.
+- **Angular 17** single-page frontend consuming the REST endpoints.
+- **MySQL 8** persistence layer reusing the existing schema (`database/schema.sql`).
 
-1. Create the schema:
+Legacy PHP code has been superseded by the new services. Use the instructions below to develop locally or run the stack with Docker.
+
+---
+
+### Project layout
+
+- `backend/` – Spring Boot application (REST APIs, security, persistence).
+- `frontend/` – Angular SPA (login flow, monitor management UI).
+- `database/schema.sql` – canonical MySQL schema and seed data (users, roles, monitors, checks).
+- `docker-compose.yml` – local development stack (MySQL, backend, Angular dev server).
+
+---
+
+### Prerequisites
+
+- Java 21+
+- Maven 3.9+
+- Node.js 20+ (Angular CLI 17+)
+- MySQL 8 (if running services outside Docker)
+
+or simply use Docker Desktop and `docker compose`.
+
+---
+
+### Running with Docker Compose
+
+1. Copy `.env.example` (if provided) or export the following variables as needed. Defaults are baked into `docker-compose.yml` (use a JWT secret ≥ 32 characters):
+   - `MYSQL_ROOT_PASSWORD`
+   - `MYSQL_DATABASE`
+   - `MYSQL_USER`
+   - `MYSQL_PASSWORD`
+   - `JWT_SECRET`
+
+2. Start the stack:
+   ```bash
+   docker compose up --build
+   ```
+
+3. Services:
+   - Angular SPA: <http://localhost:4200>
+   - Spring Boot API: <http://localhost:8080>
+   - MySQL: `localhost:3307` (mapped to container `3306`)
+
+The compose stack mounts source folders for live development:
+   - Angular is served via `ng serve` with hot reload.
+   - Spring Boot runs via `mvn spring-boot:run` with sources mounted; Maven dependencies are cached in a named volume.
+
+Stop the stack using `docker compose down` (add `-v` to drop MySQL data).
+
+---
+
+### Running locally without Docker
+
+1. **Database**
    ```bash
    mysql -u root -p < database/schema.sql
    ```
-2. Create a dedicated MySQL user (optional but recommended):
-   ```sql
-   CREATE USER 'uptime_user'@'localhost' IDENTIFIED BY 'change_me';
-   GRANT ALL PRIVILEGES ON uptime_user_management.* TO 'uptime_user'@'localhost';
-   FLUSH PRIVILEGES;
+   Adjust credentials as required and update `backend/src/main/resources/application.yml` (`DB_HOST`, etc.).
+
+2. **Backend**
+   ```bash
+   cd backend
+   mvn spring-boot:run
    ```
 
-### 2. Configure the application
+3. **Frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm start    # runs ng serve --host 0.0.0.0 --port 4200
+   ```
 
-1. Copy `includes/config.php` to `includes/config.local.php`.
-2. Update the constants in `includes/config.local.php` with your database host, name, username, and password.
+The Angular dev server proxies directly to the backend via relative URLs (`/api/...`).
 
-### 3. Serve the application
+---
 
-Point your web server’s document root to the `public/` directory (or run PHP’s built-in web server):
+### Authentication & security
 
-```bash
-php -S localhost:8000 -t public
-```
+- Users authenticate via `/api/auth/login` with email + password.
+- Successful logins return a JWT; Angular stores it in `localStorage` and attaches it via an HTTP interceptor.
+- Logout simply discards the token (`/api/auth/logout` endpoint exists for symmetry).
+- Registration (`/api/auth/register`) issues a JWT on success. New accounts receive the `user` role; seed data includes an admin user.
+- Spring Security enforces stateless JWT auth, with CORS allowing Angular dev origins (`http://localhost:4200`).
 
-Then visit `http://localhost:8000` to register, log in, and test session persistence.
+---
 
-### Project structure
+### API summary
 
-- `public/` – Front-end entry points (`login.php`, `register.php`, `logout.php`, `urls.php`, `styles.css`)
-- `includes/` – Shared bootstrap, database, authentication, session, and URL helpers
-- `database/schema.sql` – MySQL schema for the `users`, `roles`, `user_roles`, `monitored_urls`, and `check_results` tables
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/auth/login` | POST | Authenticate with email/password, receive JWT |
+| `/api/auth/register` | POST | Register new account, receive JWT |
+| `/api/auth/logout` | POST | Stateless logout (client clears token) |
+| `/api/monitors` | GET | List monitors (current user, or all if admin) |
+| `/api/monitors` | POST | Create a monitor (auto-sets `next_check_at`) |
+| `/api/monitors/{id}` | PUT | Update an existing monitor (resets `next_check_at` only if null) |
+| `/api/monitors/{id}` | DELETE | Delete a monitor (ownership enforced unless admin) |
+| `/api/checks/pending?count=N` | GET | Claim N ready checks for an agent (marks them `in_progress`) |
+| `/api/checks/execute` | POST | Execute a check immediately (HTTP fetch performed by backend) |
+| `/api/checks/result` | POST | Record a check result (updates `check_results`, clears `in_progress`, recalculates `next_check_at`) |
 
-### Managing roles
+Agents authenticate like any other user (for example, an admin account) and can poll `/api/checks/pending`.
 
-- New registrations automatically receive the `user` role (stored in `user_roles`).
-- Promote a user to admin directly in MySQL:
-  ```sql
-  INSERT IGNORE INTO roles (name) VALUES ('admin');
-  INSERT IGNORE INTO user_roles (user_id, role_id)
-  SELECT u.id, r.id
-  FROM users u
-  JOIN roles r ON r.name = 'admin'
-  WHERE u.email = 'you@example.com';
-  ```
-- Users can hold multiple roles simultaneously (e.g. both `user` and `admin`).
-- Admins see an “administrator access” banner after logging in (additional admin-only features can be added later).
+---
 
-> Upgrading from the previous single `role` column? Run:
-> ```sql
-> ALTER TABLE users DROP COLUMN role;
-> ```
-> then rerun `database/schema.sql` (or create the new tables manually) and populate `user_roles` as needed.
+### Frontend highlights
 
-### Monitoring URLs
+- Responsive layout with a monitors dashboard grid.
+- Authentication-aware header (login/logout).
+- Monitor CRUD form with inline validation.
+- Recent check history per monitor (HTTP status, response time, errors).
+- “Run check” button triggers an immediate backend check (used for manual verification).
 
-- Every user can add, edit, and delete their own monitors at `urls.php`.
-- Admins see all monitors, can assign owners while creating/editing, and the list displays the owning email.
-- Monitors live in the `monitored_urls` table; `database/schema.sql` seeds Mary with two URLs and Zookeeper (admin) with one default URL.
-- Use the **Run checks** form to hand a batch of monitors to the agent for processing (current user by default, or any user if you’re an admin).
-- Checks are dispatched to external agents through the API; once results are posted back, they appear in the **Recent checks** table (latest 10 visible to the current user, with admins seeing all results).
-- Each monitor stores a `frequency_minutes` interval, a calculated `next_check_at`, and an `in_progress` flag indicating whether a check is currently being processed by an agent.
-- Default seed passwords are `pass`. Change them in the database before deploying anywhere beyond local testing.
+---
 
-### Uptime agent API
+### Database schema
 
-- `GET /api/check/index.php?count={N}` – returns up to `{N}` JSON payloads (each with `id` and `url`) for the agent to process. Monitors picked up have their `in_progress` flag set to `1`.
-- `POST /api/check/index.php` – accepts a JSON body containing at least `id` and either `response_time_ms` or `response_time` plus an optional `http_code`, `error`, and `checked_at`. The server records the result, updates `next_check_at`, and clears the `in_progress` flag.
-- `GET /api/agent/index.php?count={N}` – convenience endpoint that pulls jobs from `api/check`, performs the HTTP requests locally, posts results back after each check, and streams a plain-text activity log.
+The schema in `database/schema.sql` matches the Spring Boot JPA mappings:
 
-### Logging
+- `users`, `roles`, `user_roles` – authentication & authorization.
+- `monitored_urls` – monitor definitions (`frequency_minutes`, `next_check_at`, `in_progress`).
+- `check_results` – historical records (`http_code`, `error_message`, `response_time_ms`, `checked_at`).
 
-- Application logs are written to `storage/logs/app.log`. The folder is created on demand.
-- Agent runs write detailed telemetry to `storage/logs/agent.log`.
-- Call `app_log('message', ['context' => 'values'])` from PHP to add entries; some core workflows (auth, monitor CRUD) already do this.
+Seed data creates:
+- `mary@invoken.com` (password `pass`, user role).
+- `zookeeper@invoken.com` (password `pass`, admin role).
+- 15 sample monitors (Google, Yahoo, etc.).
 
-### Security notes
+---
 
-- Passwords are hashed using `password_hash()`/`password_verify()`.
-- Forms include CSRF tokens stored in the session.
-- Sessions are configured as HTTP only, secure (when served over HTTPS), and use the `SameSite=Lax` attribute.
+### Logging & health
+
+- Spring Boot exposes standard logs to stdout; wire your preferred logging backend as needed.
+- Actuator health endpoint: `/actuator/health` (no auth required, useful for container readiness checks).
+
+---
+
+### Testing
+
+- **Backend:** `mvn test`
+- **Frontend:** `npm test`
+
+Unit tests are scaffolded; extend as the codebase evolves.
+
+---
+
+### Next steps & contributions
+
+- Harden JWT handling (refresh tokens, revocation list) for production deployments.
+- Add role-based UI (admin features, additional filters).
+- Extend agent tooling (dedicated client, scheduling).
+- Containerize production builds (Angular → static assets served by nginx, Spring Boot as separate container).
+
+PRs and issues are welcome. Enjoy building and monitoring! 🚀
 

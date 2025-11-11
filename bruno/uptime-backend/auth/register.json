@@ -1,0 +1,28 @@
+{
+  "meta": {
+    "name": "Register",
+    "type": "http"
+  },
+  "request": {
+    "url": "{{baseUrl}}/api/auth/register",
+    "method": "POST",
+    "headers": [
+      {
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mimeType": "application/json",
+      "data": "{\n  \"email\": \"{{registerEmail}}\",\n  \"password\": \"{{registerPassword}}\"\n}"
+    }
+  },
+  "tests": [
+    {
+      "name": "Expect created or conflict",
+      "script": "client.test(\"Registration returns 200 or 400 (duplicate)\", () => {\n  client.assert([200, 400].includes(response.status), \"Unexpected status \" + response.status);\n});\n"
+    }
+  ]
+}
+
+

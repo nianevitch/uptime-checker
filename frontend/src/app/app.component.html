@@ -1,0 +1,23 @@
+<div class="app-shell">
+  <header class="app-header">
+    <div class="logo" (click)="navigate('monitors')">
+      <img src="assets/logo.png" alt="Uptime Checker" />
+      <span>Uptime Checker</span>
+    </div>
+    <nav class="nav">
+      <a routerLink="monitors" routerLinkActive="active">Monitors</a>
+    </nav>
+    <div class="spacer"></div>
+    <ng-container *ngIf="isAuthenticated; else loginLink">
+      <button class="logout" (click)="logout()">Logout</button>
+    </ng-container>
+    <ng-template #loginLink>
+      <a routerLink="login" class="login-link">Login</a>
+    </ng-template>
+  </header>
+
+  <main class="app-content">
+    <router-outlet></router-outlet>
+  </main>
+</div>
+

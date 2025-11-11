@@ -1,0 +1,65 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-uptime_user_management}
+      MYSQL_USER: ${MYSQL_USER:-uptimer}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-uptimer}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    ports:
+      - "3307:3306"
+    networks:
+      - app-network
+
+  backend:
+    image: maven:3.9.6-eclipse-temurin-21
+    container_name: uptime-backend
+    working_dir: /app
+    command: mvn spring-boot:run
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-uptime_user_management}
+      DB_USER: ${MYSQL_USER:-uptimer}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-uptimer}
+      JWT_SECRET: ${JWT_SECRET:-change-me-change-me-change-me-change-me}
+    volumes:
+      - ./backend:/app
+      - maven_cache:/root/.m2
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mysql
+    networks:
+      - app-network
+
+  frontend:
+    image: node:20
+    container_name: uptime-frontend
+    working_dir: /app
+    command: sh -c "npm install && npm start -- --host 0.0.0.0 --port 4200 --poll 2000"
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "4200:4200"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  maven_cache:

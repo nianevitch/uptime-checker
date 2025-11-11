@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "Update Monitor",
+    "type": "http"
+  },
+  "request": {
+    "url": "{{baseUrl}}/api/monitors/{{monitorId}}",
+    "method": "PUT",
+    "headers": [
+      {
+        "name": "Authorization",
+        "value": "Bearer {{authToken}}"
+      },
+      {
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mimeType": "application/json",
+      "data": "{\n  \"url\": \"{{monitorUrl}}\",\n  \"label\": \"{{monitorLabel}} (updated)\",\n  \"frequencyMinutes\": {{monitorFrequency}}\n}"
+    }
+  },
+  "tests": [
+    {
+      "name": "Expect OK",
+      "script": "client.test(\"Monitor updated\", () => {\n  client.assert(response.status === 200, \"Expected 200, got \" + response.status);\n});\n"
+    }
+  ]
+}
+
+

@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "name": "Delete Monitor",
+    "type": "http"
+  },
+  "request": {
+    "url": "{{baseUrl}}/api/monitors/{{monitorId}}",
+    "method": "DELETE",
+    "headers": [
+      {
+        "name": "Authorization",
+        "value": "Bearer {{authToken}}"
+      }
+    ]
+  },
+  "tests": [
+    {
+      "name": "Expect 204",
+      "script": "client.test(\"Monitor deleted\", () => {\n  client.assert([200, 204].includes(response.status), \"Expected 200/204, got \" + response.status);\n});\n"
+    }
+  ]
+}
+
+

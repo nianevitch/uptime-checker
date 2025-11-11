@@ -1,0 +1,20 @@
+meta {
+  name: Fetch Pending Checks
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/checks/pending?count=5
+  body: none
+  auth: inherit
+}
+
+params:query {
+  count: 5
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

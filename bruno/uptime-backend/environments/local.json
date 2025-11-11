@@ -1,0 +1,18 @@
+{
+  "name": "Local",
+  "type": "environment",
+  "variables": {
+    "baseUrl": "http://localhost:8080",
+    "registerEmail": "test-user@example.com",
+    "registerPassword": "password123",
+    "loginEmail": "mary@invoken.com",
+    "loginPassword": "pass",
+    "monitorUrl": "https://www.example.com",
+    "monitorLabel": "Example Site",
+    "monitorFrequency": 5,
+    "authToken": "",
+    "monitorId": ""
+  }
+}
+
+

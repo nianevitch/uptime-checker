@@ -1,0 +1,32 @@
+{
+  "meta": {
+    "name": "Create Monitor",
+    "type": "http"
+  },
+  "request": {
+    "url": "{{baseUrl}}/api/monitors",
+    "method": "POST",
+    "headers": [
+      {
+        "name": "Authorization",
+        "value": "Bearer {{authToken}}"
+      },
+      {
+        "name": "Content-Type",
+        "value": "application/json"
+      }
+    ],
+    "body": {
+      "mimeType": "application/json",
+      "data": "{\n  \"url\": \"{{monitorUrl}}\",\n  \"label\": \"{{monitorLabel}}\",\n  \"frequencyMinutes\": {{monitorFrequency}}\n}"
+    }
+  },
+  "tests": [
+    {
+      "name": "Capture monitor ID",
+      "script": "client.test(\"Monitor created\", () => {\n  client.assert([200, 201].includes(response.status), \"Expected 200/201, got \" + response.status);\n});\nif (response.body && response.body.id) {\n  client.global.set(\"monitorId\", response.body.id.toString());\n}\n"
+    }
+  ]
+}
+
+
