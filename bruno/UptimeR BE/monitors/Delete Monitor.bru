@@ -1,0 +1,16 @@
+meta {
+  name: Delete Monitor
+  type: http
+  seq: 4
+}
+
+delete {
+  url: {{baseUrl}}/api/monitors/4
+  body: json
+  auth: inherit
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

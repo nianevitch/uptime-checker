@@ -1,0 +1,24 @@
+meta {
+  name: Create Monitor
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/monitors
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "url": "{{monitorUrl}}",
+    "label": "{{monitorLabel}}",
+    "frequencyMinutes": {{monitorFrequency}}
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

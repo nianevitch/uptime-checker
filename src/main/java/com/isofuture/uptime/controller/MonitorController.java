@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.isofuture.uptime.dto.MonitoredUrlRequest;
@@ -44,14 +45,14 @@ public class MonitorController {
 
     @PutMapping("/{id}")
     public ResponseEntity<MonitoredUrlResponse> update(
-        @PathVariable Long id,
+        @PathVariable("id") Long id,
         @Valid @RequestBody MonitoredUrlRequest request
     ) {
         return ResponseEntity.ok(monitorService.updateMonitor(id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable("id") Long id) {
         monitorService.deleteMonitor(id);
         return ResponseEntity.noContent().build();
     }
