@@ -19,5 +19,7 @@ public interface MonitoredUrlRepository extends JpaRepository<MonitoredUrlEntity
     List<MonitoredUrlEntity> findReadyForCheck(@Param("now") Instant now);
 
     Optional<MonitoredUrlEntity> findByIdAndOwnerId(Long id, Long ownerId);
+
+    List<MonitoredUrlEntity> findByInProgressTrueOrderByUpdatedAtAsc();
 }
 

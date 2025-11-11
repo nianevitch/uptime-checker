@@ -1,11 +1,11 @@
 meta {
-  name: Fetch Pending Checks
+  name: Fetch Next Checks
   type: http
-  seq: 1
+  seq: 2
 }
 
-get {
-  url: {{baseUrl}}/api/checks/pending?count=5
+post {
+  url: {{baseUrl}}/api/checks/next?count=5
   body: none
   auth: apikey
 }

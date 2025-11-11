@@ -12,7 +12,8 @@ import com.isofuture.uptime.entity.UserEntity;
 
 public class SecurityUser implements UserDetails {
 
-    private final Long id;
+	private static final long serialVersionUID = -4625746023998045208L;
+	private final Long id;
     private final String email;
     private final String passwordHash;
     private final Set<String> roles;

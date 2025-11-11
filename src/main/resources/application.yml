@@ -22,6 +22,8 @@ app:
   security:
     jwt:
       issuer: uptime-checker
-      secret: ${JWT_SECRET:change-me-change-me-change-me-change-me}
+      secret: ${JWT_SECRET:change-me-change-me-0fdbdeb050f5-change-me}
       expiration-minutes: ${JWT_EXPIRATION_MINUTES:60}
+  worker:
+    api-keys: ${WORKER_API_KEYS:worker-default-41e03e338437-key}
 

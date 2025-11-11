@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -112,8 +113,19 @@ public class MonitorService {
         monitoredUrlRepository.delete(entity);
     }
 
+    @Transactional(readOnly = true)
+    public List<PendingCheckResponse> getInProgressChecks(Integer limit) {
+        Stream<MonitoredUrlEntity> stream = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc().stream();
+        if (limit != null) {
+            stream = stream.limit(limit);
+        }
+        return stream
+            .map(entity -> new PendingCheckResponse(entity.getId(), entity.getUrl(), entity.getLabel()))
+            .collect(Collectors.toList());
+    }
+
     @Transactional
-    public List<PendingCheckResponse> claimPendingChecks(int limit) {
+    public List<PendingCheckResponse> fetchNextChecks(int limit) {
         Instant now = Instant.now();
         List<MonitoredUrlEntity> candidates = monitoredUrlRepository.findReadyForCheck(now);
         return candidates.stream()
@@ -121,7 +133,8 @@ public class MonitorService {
             .map(entity -> {
                 entity.setInProgress(true);
                 entity.setUpdatedAt(now);
-                return new PendingCheckResponse(entity.getId(), entity.getUrl(), entity.getLabel());
+                PendingCheckResponse response = new PendingCheckResponse(entity.getId(), entity.getUrl(), entity.getLabel());
+                return response;
             })
             .collect(Collectors.toList());
     }

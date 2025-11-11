@@ -1,0 +1,36 @@
+meta {
+  name: Record Check Result
+  type: http
+  seq: 4
+}
+
+patch {
+  url: {{baseUrl}}/api/checks/result
+  body: json
+  auth: apikey
+}
+
+headers {
+  Content-Type: application/json
+}
+
+auth:apikey {
+  key: X-API-Key
+  value: {{X-API-Key}}
+  placement: header
+}
+
+body:json {
+  {
+    "monitorId": 17,
+    "httpCode": 200,
+    "responseTimeMs": 152.4,
+    "checkedAt": "2025-11-11T20:20:00Z",
+    "errorMessage": null
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

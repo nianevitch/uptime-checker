@@ -106,7 +106,7 @@ public class CheckService {
     }
 
     private MonitoredUrlEntity loadAccessibleMonitor(Long id) {
-        if (userContext.isAdmin()) {
+        if (userContext.isAdmin() || userContext.isWorker()) {
             return monitoredUrlRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
         }

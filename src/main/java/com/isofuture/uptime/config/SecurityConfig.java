@@ -18,15 +18,21 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import com.isofuture.uptime.security.JwtAuthenticationFilter;
+import com.isofuture.uptime.security.WorkerApiKeyAuthenticationFilter;
 
 @Configuration
 @EnableMethodSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter authenticationFilter;
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final WorkerApiKeyAuthenticationFilter workerApiKeyAuthenticationFilter;
 
-    public SecurityConfig(JwtAuthenticationFilter authenticationFilter) {
-        this.authenticationFilter = authenticationFilter;
+    public SecurityConfig(
+        JwtAuthenticationFilter jwtAuthenticationFilter,
+        WorkerApiKeyAuthenticationFilter workerApiKeyAuthenticationFilter
+    ) {
+        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+        this.workerApiKeyAuthenticationFilter = workerApiKeyAuthenticationFilter;
     }
 
     @Bean
@@ -40,7 +46,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(authenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(workerApiKeyAuthenticationFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }
@@ -59,7 +66,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:4200", "http://127.0.0.1:4200"));
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         configuration.setAllowCredentials(true);
 

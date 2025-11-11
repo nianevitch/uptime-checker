@@ -1,0 +1,22 @@
+meta {
+  name: Execute Check
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/checks/execute
+  body: json
+  auth: inherit
+}
+
+body:json {
+  {
+    "monitorId": 2
+  }
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}

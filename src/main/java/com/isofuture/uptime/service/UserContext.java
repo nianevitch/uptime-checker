@@ -32,5 +32,9 @@ public class UserContext {
     public boolean isAdmin() {
         return hasRole("ADMIN");
     }
+
+    public boolean isWorker() {
+        return hasRole("WORKER");
+    }
 }
 
