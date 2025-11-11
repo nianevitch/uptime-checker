@@ -1,5 +1,5 @@
 meta {
-  name: get checks
+  name: single check result
   type: http
   seq: 1
 }
@@ -15,17 +15,12 @@ headers {
 }
 
 body:json {
-  [{
+  {
     "id": 13,
     "http_code": 200,
     "response_time": 123.4,
     "checked_at": "2025-01-01T12:00:00Z"
-  },{
-    "id": 16,
-    "http_code": 200,
-    "response_time": 123.4,
-    "checked_at": "2025-01-01T12:00:00Z"
-  }]
+  }
 }
 
 settings {

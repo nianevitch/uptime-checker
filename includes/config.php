@@ -18,18 +18,25 @@ if (is_file($localConfig)) {
 }
 
 if (!defined('DB_HOST')) {
-    define('DB_HOST', '127.0.0.1');
+    $envHost = getenv('MYSQL_HOST') ?: getenv('DB_HOST');
+    define('DB_HOST', $envHost !== false && $envHost !== '' ? $envHost : '127.0.0.1');
 }
 
 if (!defined('DB_NAME')) {
-    define('DB_NAME', 'uptime_user_management');
+    $envDatabase = getenv('MYSQL_DATABASE') ?: getenv('DB_NAME');
+    define('DB_NAME', $envDatabase !== false && $envDatabase !== '' ? $envDatabase : 'uptime_user_management');
 }
 
 if (!defined('DB_USER')) {
-    define('DB_USER', 'uptime_user');
+    $envUser = getenv('MYSQL_USER') ?: getenv('DB_USER');
+    define('DB_USER', $envUser !== false && $envUser !== '' ? $envUser : 'uptime_user');
 }
 
 if (!defined('DB_PASS')) {
-    define('DB_PASS', 'change_me');
+    $envPassword = getenv('MYSQL_PASSWORD');
+    if ($envPassword === false || $envPassword === '') {
+        $envPassword = getenv('DB_PASS');
+    }
+    define('DB_PASS', $envPassword !== false && $envPassword !== '' ? $envPassword : 'change_me');
 }
 

@@ -8,16 +8,19 @@ declare(strict_types=1);
  * The default values target a local MySQL instance.
  */
 
-const DB_HOST = '127.0.0.1';
-const DB_NAME = 'uptime_user_management';
-const DB_USER = 'uptimer';
-const DB_PASS = 'uptimer';
+if (!getenv('MYSQL_HOST') && !getenv('DB_HOST') && !defined('DB_HOST')) {
+    define('DB_HOST', '127.0.0.1:3307');
+}
 
-/**
- * If you have a `config.local.php` in the same directory, it will override the defaults above.
- */
-$localConfig = __DIR__ . '/config.local.php';
-if (is_file($localConfig)) {
-    require_once $localConfig;
+if (!getenv('MYSQL_DATABASE') && !getenv('DB_NAME') && !defined('DB_NAME')) {
+    define('DB_NAME', 'uptime_user_management');
+}
+
+if (!getenv('MYSQL_USER') && !getenv('DB_USER') && !defined('DB_USER')) {
+    define('DB_USER', 'uptime_user');
+}
+
+if (!getenv('MYSQL_PASSWORD') && !getenv('DB_PASS') && !defined('DB_PASS')) {
+    define('DB_PASS', 'uptime_user');
 }
 

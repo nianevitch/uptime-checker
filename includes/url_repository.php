@@ -1,8 +1,6 @@
 <?php
 declare(strict_types=1);
 
-use DateTimeImmutable;
-use RuntimeException;
 
 /**
  * Fetch monitored URLs for the current user or, if admin, all users.
@@ -117,7 +115,7 @@ function create_monitored_url(\PDO $pdo, int $ownerId, string $url, ?string $lab
         if ((int) $e->getCode() === 23000) {
             return [false, 'A monitor for that URL already exists for the selected user.'];
         }
-        error_log('create_monitored_url failed: ' . $e->getMessage());
+        app_log('create_monitored_url failed', ['error' => $e->getMessage()]);
         return [false, 'Unable to create monitor. Please try again.'];
     }
 }
@@ -180,7 +178,7 @@ function update_monitored_url(\PDO $pdo, int $id, int $ownerId, string $url, ?st
         if ((int) $e->getCode() === 23000) {
             return [false, 'Another monitor already uses that URL for the chosen user.'];
         }
-        error_log('update_monitored_url failed: ' . $e->getMessage());
+        app_log('update_monitored_url failed', ['error' => $e->getMessage()]);
         return [false, 'Unable to update monitor. Please try again.'];
     }
 }
@@ -202,7 +200,7 @@ function delete_monitored_url(\PDO $pdo, int $id): array
 
         return [true, null];
     } catch (\PDOException $e) {
-        error_log('delete_monitored_url failed: ' . $e->getMessage());
+        app_log('delete_monitored_url failed', ['error' => $e->getMessage()]);
         return [false, 'Unable to delete monitor. Please try again.'];
     }
 }

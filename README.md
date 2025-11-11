@@ -71,6 +71,13 @@ Then visit `http://localhost:8000` to register, log in, and test session persist
 
 - `GET /api/check/index.php?count={N}` – returns up to `{N}` JSON payloads (each with `id` and `url`) for the agent to process. Monitors picked up have their `in_progress` flag set to `1`.
 - `POST /api/check/index.php` – accepts a JSON body containing at least `id` and either `response_time_ms` or `response_time` plus an optional `http_code`, `error`, and `checked_at`. The server records the result, updates `next_check_at`, and clears the `in_progress` flag.
+- `GET /api/agent/index.php?count={N}` – convenience endpoint that pulls jobs from `api/check`, performs the HTTP requests locally, posts results back after each check, and streams a plain-text activity log.
+
+### Logging
+
+- Application logs are written to `storage/logs/app.log`. The folder is created on demand.
+- Agent runs write detailed telemetry to `storage/logs/agent.log`.
+- Call `app_log('message', ['context' => 'values'])` from PHP to add entries; some core workflows (auth, monitor CRUD) already do this.
 
 ### Security notes
 

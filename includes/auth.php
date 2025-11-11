@@ -132,7 +132,7 @@ function register_user(\PDO $pdo, string $email, string $password): array
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        error_log('Registration failed: ' . $e->getMessage());
+        app_log('Registration failed', ['error' => $e->getMessage()]);
         return [false, 'Registration failed. Please try again.'];
     }
 }
@@ -167,7 +167,7 @@ function login_user(\PDO $pdo, string $email, string $password): array
 
         return [true, null];
     } catch (\PDOException $e) {
-        error_log('Login failed: ' . $e->getMessage());
+        app_log('Login failed', ['error' => $e->getMessage()]);
         return [false, 'Login failed. Please try again.'];
     }
 }
@@ -207,7 +207,7 @@ function assign_role(\PDO $pdo, int $userId, string $roleName): bool
 {
     $roleId = get_role_id($pdo, $roleName);
     if ($roleId === null) {
-        error_log(sprintf('Role "%s" does not exist.', $roleName));
+        app_log('Role lookup failed', ['role' => $roleName]);
         return false;
     }
 
