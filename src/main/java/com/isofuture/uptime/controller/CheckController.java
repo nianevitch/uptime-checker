@@ -60,8 +60,10 @@ public class CheckController {
     }
 
     @PostMapping("/execute")
-    public ResponseEntity<CheckResultDto> execute(@Valid @RequestBody ExecuteCheckRequest request) {
-        return ResponseEntity.ok(checkService.executeCheck(request));
+    public ResponseEntity<CheckResultDto> execute(
+        @Valid @RequestBody ExecuteCheckRequest request
+    ) {
+        return ResponseEntity.ok(checkService.executeCheck(request, false));
     }
 
     @PatchMapping("/result")
@@ -70,7 +72,7 @@ public class CheckController {
         @Valid @RequestBody CheckResultUpdateRequest request
     ) {
         workerApiKeyService.assertValid(apiKey);
-        return ResponseEntity.ok(checkService.recordResult(request));
+        return ResponseEntity.ok(checkService.recordResult(request, true));
     }
 }
 

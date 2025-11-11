@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,8 +43,8 @@ public class CheckService {
     }
 
     @Transactional
-    public CheckResultDto executeCheck(ExecuteCheckRequest request) {
-        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId());
+    public CheckResultDto executeCheck(ExecuteCheckRequest request, boolean invokedByWorker) {
+        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
 
         monitor.setInProgress(true);
         monitor.setUpdatedAt(Instant.now());
@@ -76,12 +77,12 @@ public class CheckService {
         updateRequest.setResponseTimeMs(responseTime);
         updateRequest.setCheckedAt(Instant.now());
 
-        return recordResult(updateRequest);
+        return recordResult(updateRequest, invokedByWorker);
     }
 
     @Transactional
-    public CheckResultDto recordResult(CheckResultUpdateRequest request) {
-        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId());
+    public CheckResultDto recordResult(CheckResultUpdateRequest request, boolean invokedByWorker) {
+        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
 
         CheckResultEntity result = new CheckResultEntity();
         result.setMonitoredUrl(monitor);
@@ -105,13 +106,13 @@ public class CheckService {
         return dto;
     }
 
-    private MonitoredUrlEntity loadAccessibleMonitor(Long id) {
-        if (userContext.isAdmin() || userContext.isWorker()) {
+    private MonitoredUrlEntity loadAccessibleMonitor(Long id, boolean invokedByWorker) {
+        if (userContext.isAdmin() || invokedByWorker) {
             return monitoredUrlRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
         }
         return monitoredUrlRepository.findByIdAndOwnerId(id, userContext.getCurrentUser().getId())
-            .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
+            .orElseThrow(() -> new AccessDeniedException("Forbidden"));
     }
 }
 

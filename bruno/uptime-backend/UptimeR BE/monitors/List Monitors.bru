@@ -1,0 +1,16 @@
+meta {
+  name: List Monitors
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/monitors
+  body: none
+  auth: inherit
+}
+
+settings {
+  encodeUrl: false
+  timeout: 0
+}
