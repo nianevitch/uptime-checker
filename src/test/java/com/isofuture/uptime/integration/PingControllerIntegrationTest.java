@@ -21,15 +21,15 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isofuture.uptime.dto.LoginRequest;
-import com.isofuture.uptime.dto.MonitoredUrlRequest;
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.dto.PingRequest;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.User;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.SecurityUser;
-import com.isofuture.uptime.service.MonitorService;
+import com.isofuture.uptime.service.PingService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -37,8 +37,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
-@DisplayName("MonitorController Integration Tests")
-class MonitorControllerIntegrationTest {
+@DisplayName("PingController Integration Tests")
+class PingControllerIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -53,25 +53,25 @@ class MonitorControllerIntegrationTest {
     private RoleRepository roleRepository;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
-    private MonitorService monitorService;
+    private PingService pingService;
 
     private User adminUser;
     private User regularUser;
-    private MonitoredUrl adminMonitor;
-    private MonitoredUrl userMonitor;
+    private Ping adminPing;
+    private Ping userPing;
     private String adminToken;
     private String regularUserToken;
 
     @BeforeEach
     void setUp() throws Exception {
         // Clean up
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
 
@@ -106,26 +106,26 @@ class MonitorControllerIntegrationTest {
         regularUser.setRoles(Set.of(userRole));
         regularUser = userRepository.save(regularUser);
 
-        // Create monitors
-        adminMonitor = new MonitoredUrl();
-        adminMonitor.setOwner(adminUser);
-        adminMonitor.setUrl("https://admin-site.com");
-        adminMonitor.setLabel("Admin Monitor");
-        adminMonitor.setFrequencyMinutes(5);
-        adminMonitor.setInProgress(false);
-        adminMonitor.setCreatedAt(Instant.now());
-        adminMonitor.setUpdatedAt(Instant.now());
-        adminMonitor = monitoredUrlRepository.save(adminMonitor);
+        // Create pings
+        adminPing = new Ping();
+        adminPing.setOwner(adminUser);
+        adminPing.setUrl("https://admin-site.com");
+        adminPing.setLabel("Admin Ping");
+        adminPing.setFrequencyMinutes(5);
+        adminPing.setInProgress(false);
+        adminPing.setCreatedAt(Instant.now());
+        adminPing.setUpdatedAt(Instant.now());
+        adminPing = pingRepository.save(adminPing);
 
-        userMonitor = new MonitoredUrl();
-        userMonitor.setOwner(regularUser);
-        userMonitor.setUrl("https://user-site.com");
-        userMonitor.setLabel("User Monitor");
-        userMonitor.setFrequencyMinutes(10);
-        userMonitor.setInProgress(false);
-        userMonitor.setCreatedAt(Instant.now());
-        userMonitor.setUpdatedAt(Instant.now());
-        userMonitor = monitoredUrlRepository.save(userMonitor);
+        userPing = new Ping();
+        userPing.setOwner(regularUser);
+        userPing.setUrl("https://user-site.com");
+        userPing.setLabel("User Ping");
+        userPing.setFrequencyMinutes(10);
+        userPing.setInProgress(false);
+        userPing.setCreatedAt(Instant.now());
+        userPing.setUpdatedAt(Instant.now());
+        userPing = pingRepository.save(userPing);
 
         // Get tokens
         adminToken = getAuthToken("admin@test.com", "password");
@@ -133,9 +133,9 @@ class MonitorControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("GET /api/monitors - Admin sees all monitors")
+    @DisplayName("GET /api/pings - Admin sees all pings")
     void testList_Admin_SeesAll() throws Exception {
-        mockMvc.perform(get("/api/monitors")
+        mockMvc.perform(get("/api/pings")
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray())
@@ -144,17 +144,17 @@ class MonitorControllerIntegrationTest {
         // Verify via service call (set up security context first)
         setSecurityContext(adminUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            assertEquals(2, monitors.size());
+            var pings = pingService.listCurrentUserPings();
+            assertEquals(2, pings.size());
         } finally {
             clearSecurityContext();
         }
     }
 
     @Test
-    @DisplayName("GET /api/monitors - Regular user sees only own monitors")
+    @DisplayName("GET /api/pings - Regular user sees only own pings")
     void testList_RegularUser_SeesOwn() throws Exception {
-        mockMvc.perform(get("/api/monitors")
+        mockMvc.perform(get("/api/pings")
                 .header("Authorization", "Bearer " + regularUserToken))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$").isArray())
@@ -164,23 +164,23 @@ class MonitorControllerIntegrationTest {
         // Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            assertEquals(1, monitors.size());
-            assertEquals("https://user-site.com", monitors.get(0).getUrl());
+            var pings = pingService.listCurrentUserPings();
+            assertEquals(1, pings.size());
+            assertEquals("https://user-site.com", pings.get(0).getUrl());
         } finally {
             clearSecurityContext();
         }
     }
 
     @Test
-    @DisplayName("POST /api/monitors - User can create monitor")
+    @DisplayName("POST /api/pings - User can create ping")
     void testCreate_Success() throws Exception {
-        MonitoredUrlRequest request = new MonitoredUrlRequest();
+        PingRequest request = new PingRequest();
         request.setUrl("https://new-site.com");
         request.setLabel("New Monitor");
         request.setFrequencyMinutes(15);
 
-        mockMvc.perform(post("/api/monitors")
+        mockMvc.perform(post("/api/pings")
                 .header("Authorization", "Bearer " + regularUserToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -191,26 +191,26 @@ class MonitorControllerIntegrationTest {
         // Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            assertEquals(2, monitors.size()); // Original + new one
+            var pings = pingService.listCurrentUserPings();
+            assertEquals(2, pings.size()); // Original + new one
         } finally {
             clearSecurityContext();
         }
         
         // Verify via repository
-        var created = monitoredUrlRepository.findByOwner(regularUser);
+        var created = pingRepository.findByOwner(regularUser);
         assertEquals(2, created.size());
     }
 
     @Test
-    @DisplayName("PUT /api/monitors/{id} - User can update own monitor")
+    @DisplayName("PUT /api/pings/{id} - User can update own ping")
     void testUpdate_OwnMonitor_Success() throws Exception {
-        MonitoredUrlRequest request = new MonitoredUrlRequest();
+        PingRequest request = new PingRequest();
         request.setUrl("https://updated-site.com");
         request.setLabel("Updated Monitor");
         request.setFrequencyMinutes(20);
 
-        mockMvc.perform(put("/api/monitors/" + userMonitor.getId())
+        mockMvc.perform(put("/api/pings/" + userPing.getId())
                 .header("Authorization", "Bearer " + regularUserToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -221,9 +221,9 @@ class MonitorControllerIntegrationTest {
         // Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            var updated = monitors.stream()
-                .filter(m -> m.getId().equals(userMonitor.getId()))
+            var pings = pingService.listCurrentUserPings();
+            var updated = pings.stream()
+                .filter(m -> m.getId().equals(userPing.getId()))
                 .findFirst()
                 .orElseThrow();
             assertEquals("https://updated-site.com", updated.getUrl());
@@ -232,19 +232,19 @@ class MonitorControllerIntegrationTest {
         }
         
         // Verify via repository
-        var entity = monitoredUrlRepository.findById(userMonitor.getId()).orElseThrow();
+        var entity = pingRepository.findById(userPing.getId()).orElseThrow();
         assertEquals("https://updated-site.com", entity.getUrl());
     }
 
     @Test
-    @DisplayName("PUT /api/monitors/{id} - User cannot update other user's monitor")
+    @DisplayName("PUT /api/pings/{id} - User cannot update other user's ping")
     void testUpdate_OtherUserMonitor_Forbidden() throws Exception {
-        MonitoredUrlRequest request = new MonitoredUrlRequest();
+        PingRequest request = new PingRequest();
         request.setUrl("https://hacked-site.com");
         request.setLabel("Hacked Monitor");
         request.setFrequencyMinutes(20);
 
-        mockMvc.perform(put("/api/monitors/" + adminMonitor.getId())
+        mockMvc.perform(put("/api/pings/" + adminPing.getId())
                 .header("Authorization", "Bearer " + regularUserToken)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
@@ -252,35 +252,35 @@ class MonitorControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("DELETE /api/monitors/{id} - User can delete own monitor")
+    @DisplayName("DELETE /api/pings/{id} - User can delete own ping")
     void testDelete_OwnMonitor_Success() throws Exception {
-        mockMvc.perform(delete("/api/monitors/" + userMonitor.getId())
+        mockMvc.perform(delete("/api/pings/" + userPing.getId())
                 .header("Authorization", "Bearer " + regularUserToken))
             .andExpect(status().isNoContent());
 
         // Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            assertEquals(0, monitors.size());
+            var pings = pingService.listCurrentUserPings();
+            assertEquals(0, pings.size());
         } finally {
             clearSecurityContext();
         }
         
         // Verify via repository
-        var deleted = monitoredUrlRepository.findById(userMonitor.getId());
+        var deleted = pingRepository.findById(userPing.getId());
         assertFalse(deleted.isPresent());
     }
 
     @Test
-    @DisplayName("DELETE /api/monitors/{id} - Admin can delete any monitor")
+    @DisplayName("DELETE /api/pings/{id} - Admin can delete any ping")
     void testDelete_Admin_CanDeleteAny() throws Exception {
-        mockMvc.perform(delete("/api/monitors/" + userMonitor.getId())
+        mockMvc.perform(delete("/api/pings/" + userPing.getId())
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isNoContent());
 
         // Verify via repository
-        var deleted = monitoredUrlRepository.findById(userMonitor.getId());
+        var deleted = pingRepository.findById(userPing.getId());
         assertFalse(deleted.isPresent());
     }
 

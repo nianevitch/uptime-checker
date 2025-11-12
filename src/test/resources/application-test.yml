@@ -33,6 +33,8 @@ logging:
     # Application packages - can be controlled individually
     com.isofuture.uptime: ${LOG_LEVEL_APP:INFO}
     com.isofuture.uptime.controller: ${LOG_LEVEL_CONTROLLER:INFO}
+    # Suppress error logs from RestExceptionHandler during tests (expected behavior when testing error handling)
+    com.isofuture.uptime.controller.RestExceptionHandler: ${LOG_LEVEL_REST_EXCEPTION_HANDLER:WARN}
     com.isofuture.uptime.service: ${LOG_LEVEL_SERVICE:INFO}
     com.isofuture.uptime.security: ${LOG_LEVEL_SECURITY:INFO}
     com.isofuture.uptime.repository: ${LOG_LEVEL_REPOSITORY:INFO}

@@ -5,21 +5,21 @@ import java.util.List;
 import org.springframework.stereotype.Component;
 
 import com.isofuture.uptime.dto.CheckResultDto;
-import com.isofuture.uptime.dto.MonitoredUrlResponse;
+import com.isofuture.uptime.dto.PingResponse;
 import com.isofuture.uptime.entity.CheckResult;
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.User;
 
 @Component
-public class MonitoredUrlMapperImpl implements MonitoredUrlMapper {
+public class PingMapperImpl implements PingMapper {
 
     @Override
-    public MonitoredUrlResponse toResponse(MonitoredUrl entity, List<CheckResultDto> recentResults) {
+    public PingResponse toResponse(Ping entity, List<CheckResultDto> recentResults) {
         if (entity == null) {
             return null;
         }
 
-        MonitoredUrlResponse response = new MonitoredUrlResponse();
+        PingResponse response = new PingResponse();
         response.setId(entity.getId());
 
         User owner = entity.getOwner();

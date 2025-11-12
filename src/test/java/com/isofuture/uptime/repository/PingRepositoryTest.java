@@ -12,42 +12,42 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.RoleRepository;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@DisplayName("MonitoredUrlRepository Integration Tests")
-class MonitoredUrlRepositoryTest {
+@DisplayName("PingRepository Integration Tests")
+class PingRepositoryTest {
 
     @Autowired
     private TestEntityManager entityManager;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Autowired
     private RoleRepository roleRepository;
 
     @Test
-    @DisplayName("findByOwner - Returns monitors for specific owner")
+    @DisplayName("findByOwner - Returns pings for specific owner")
     void testFindByOwner_Success() {
         // Given
         User owner1 = createUser("owner1@test.com");
         User owner2 = createUser("owner2@test.com");
         
-        MonitoredUrl monitor1 = createMonitor(owner1, "https://site1.com");
-        MonitoredUrl monitor2 = createMonitor(owner1, "https://site2.com");
-        MonitoredUrl monitor3 = createMonitor(owner2, "https://site3.com");
+        Ping ping1 = createPing(owner1, "https://site1.com");
+        Ping ping2 = createPing(owner1, "https://site2.com");
+        Ping ping3 = createPing(owner2, "https://site3.com");
         
-        entityManager.persistAndFlush(monitor1);
-        entityManager.persistAndFlush(monitor2);
-        entityManager.persistAndFlush(monitor3);
+        entityManager.persistAndFlush(ping1);
+        entityManager.persistAndFlush(ping2);
+        entityManager.persistAndFlush(ping3);
 
         // When
-        List<MonitoredUrl> owner1Monitors = monitoredUrlRepository.findByOwner(owner1);
+        List<Ping> owner1Monitors = pingRepository.findByOwner(owner1);
 
         // Then
         assertEquals(2, owner1Monitors.size());
@@ -56,24 +56,24 @@ class MonitoredUrlRepositoryTest {
     }
 
     @Test
-    @DisplayName("findReadyForCheck - Returns monitors ready for check")
+    @DisplayName("findReadyForCheck - Returns pings ready for check")
     void testFindReadyForCheck_Success() {
         // Given
         User owner = createUser("owner@test.com");
         
-        MonitoredUrl ready1 = createMonitor(owner, "https://ready1.com");
+        Ping ready1 = createPing(owner, "https://ready1.com");
         ready1.setNextCheckAt(Instant.now().minusSeconds(60));
         ready1.setInProgress(false);
         
-        MonitoredUrl ready2 = createMonitor(owner, "https://ready2.com");
+        Ping ready2 = createPing(owner, "https://ready2.com");
         ready2.setNextCheckAt(null);
         ready2.setInProgress(false);
         
-        MonitoredUrl notReady = createMonitor(owner, "https://notready.com");
+        Ping notReady = createPing(owner, "https://notready.com");
         notReady.setNextCheckAt(Instant.now().plusSeconds(3600));
         notReady.setInProgress(false);
         
-        MonitoredUrl inProgress = createMonitor(owner, "https://inprogress.com");
+        Ping inProgress = createPing(owner, "https://inprogress.com");
         inProgress.setNextCheckAt(Instant.now().minusSeconds(60));
         inProgress.setInProgress(true);
         
@@ -83,7 +83,7 @@ class MonitoredUrlRepositoryTest {
         entityManager.persistAndFlush(inProgress);
 
         // When
-        List<MonitoredUrl> ready = monitoredUrlRepository.findReadyForCheck(Instant.now());
+        List<Ping> ready = pingRepository.findReadyForCheck(Instant.now());
 
         // Then
         assertEquals(2, ready.size());
@@ -92,15 +92,15 @@ class MonitoredUrlRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByIdAndOwnerId - Returns monitor if owned by user")
+    @DisplayName("findByIdAndOwnerId - Returns ping if owned by user")
     void testFindByIdAndOwnerId_Success() {
         // Given
         User owner = createUser("owner@test.com");
-        MonitoredUrl monitor = createMonitor(owner, "https://site.com");
-        entityManager.persistAndFlush(monitor);
+        Ping ping = createPing(owner, "https://site.com");
+        entityManager.persistAndFlush(ping);
 
         // When
-        var found = monitoredUrlRepository.findByIdAndOwnerId(monitor.getId(), owner.getId());
+        var found = pingRepository.findByIdAndOwnerId(ping.getId(), owner.getId());
 
         // Then
         assertTrue(found.isPresent());
@@ -108,20 +108,20 @@ class MonitoredUrlRepositoryTest {
     }
 
     @Test
-    @DisplayName("findByInProgressTrueOrderByUpdatedAtAsc - Returns only in-progress monitors")
+    @DisplayName("findByInProgressTrueOrderByUpdatedAtAsc - Returns only in-progress pings")
     void testFindByInProgressTrue_Success() {
         // Given
         User owner = createUser("owner@test.com");
         
-        MonitoredUrl inProgress1 = createMonitor(owner, "https://progress1.com");
+        Ping inProgress1 = createPing(owner, "https://progress1.com");
         inProgress1.setInProgress(true);
         inProgress1.setUpdatedAt(Instant.now().minusSeconds(120));
         
-        MonitoredUrl inProgress2 = createMonitor(owner, "https://progress2.com");
+        Ping inProgress2 = createPing(owner, "https://progress2.com");
         inProgress2.setInProgress(true);
         inProgress2.setUpdatedAt(Instant.now().minusSeconds(60));
         
-        MonitoredUrl notInProgress = createMonitor(owner, "https://notprogress.com");
+        Ping notInProgress = createPing(owner, "https://notprogress.com");
         notInProgress.setInProgress(false);
         
         entityManager.persistAndFlush(inProgress1);
@@ -129,7 +129,7 @@ class MonitoredUrlRepositoryTest {
         entityManager.persistAndFlush(notInProgress);
 
         // When
-        List<MonitoredUrl> inProgress = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc();
+        List<Ping> inProgress = pingRepository.findByInProgressTrueOrderByUpdatedAtAsc();
 
         // Then
         assertEquals(2, inProgress.size());
@@ -158,16 +158,16 @@ class MonitoredUrlRepositoryTest {
         return user;
     }
 
-    private MonitoredUrl createMonitor(User owner, String url) {
-        MonitoredUrl monitor = new MonitoredUrl();
-        monitor.setOwner(owner);
-        monitor.setUrl(url);
-        monitor.setLabel("Test Monitor");
-        monitor.setFrequencyMinutes(5);
-        monitor.setInProgress(false);
-        monitor.setCreatedAt(Instant.now());
-        monitor.setUpdatedAt(Instant.now());
-        return monitor;
+    private Ping createPing(User owner, String url) {
+        Ping ping = new Ping();
+        ping.setOwner(owner);
+        ping.setUrl(url);
+        ping.setLabel("Test Monitor");
+        ping.setFrequencyMinutes(5);
+        ping.setInProgress(false);
+        ping.setCreatedAt(Instant.now());
+        ping.setUpdatedAt(Instant.now());
+        return ping;
     }
 }
 

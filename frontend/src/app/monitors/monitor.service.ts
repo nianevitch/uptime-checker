@@ -10,7 +10,7 @@ export interface CheckResult {
   checkedAt: string;
 }
 
-export interface Monitor {
+export interface Ping {
   id: number;
   ownerId?: number;
   label?: string;
@@ -23,28 +23,28 @@ export interface Monitor {
   recentResults: CheckResult[];
 }
 
-export interface MonitorPayload {
+export interface PingPayload {
   url: string;
   label?: string;
   frequencyMinutes: number;
 }
 
 @Injectable({ providedIn: 'root' })
-export class MonitorService {
-  private readonly baseUrl = '/api/monitors';
+export class PingService {
+  private readonly baseUrl = '/api/pings';
 
   constructor(private readonly http: HttpClient) {}
 
-  list(): Observable<Monitor[]> {
-    return this.http.get<Monitor[]>(this.baseUrl);
+  list(): Observable<Ping[]> {
+    return this.http.get<Ping[]>(this.baseUrl);
   }
 
-  create(payload: MonitorPayload): Observable<Monitor> {
-    return this.http.post<Monitor>(this.baseUrl, payload);
+  create(payload: PingPayload): Observable<Ping> {
+    return this.http.post<Ping>(this.baseUrl, payload);
   }
 
-  update(id: number, payload: MonitorPayload): Observable<Monitor> {
-    return this.http.put<Monitor>(`${this.baseUrl}/${id}`, payload);
+  update(id: number, payload: PingPayload): Observable<Ping> {
+    return this.http.put<Ping>(`${this.baseUrl}/${id}`, payload);
   }
 
   delete(id: number): Observable<void> {
@@ -52,7 +52,7 @@ export class MonitorService {
   }
 
   execute(id: number): Observable<CheckResult> {
-    return this.http.post<CheckResult>('/api/checks/execute', { monitorId: id });
+    return this.http.post<CheckResult>('/api/checks/execute', { pingId: id });
   }
 }
 

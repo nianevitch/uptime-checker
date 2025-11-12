@@ -2,25 +2,25 @@ package com.isofuture.uptime.dto;
 
 public class PendingCheckResponse {
 
-    private Long monitorId;
+    private Long pingId;
     private String url;
     private String label;
 
     public PendingCheckResponse() {
     }
 
-    public PendingCheckResponse(Long monitorId, String url, String label) {
-        this.monitorId = monitorId;
+    public PendingCheckResponse(Long pingId, String url, String label) {
+        this.pingId = pingId;
         this.url = url;
         this.label = label;
     }
 
-    public Long getMonitorId() {
-        return monitorId;
+    public Long getPingId() {
+        return pingId;
     }
 
-    public void setMonitorId(Long monitorId) {
-        this.monitorId = monitorId;
+    public void setPingId(Long pingId) {
+        this.pingId = pingId;
     }
 
     public String getUrl() {

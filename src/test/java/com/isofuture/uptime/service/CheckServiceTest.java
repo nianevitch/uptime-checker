@@ -20,10 +20,10 @@ import com.isofuture.uptime.dto.CheckResultDto;
 import com.isofuture.uptime.dto.CheckResultUpdateRequest;
 import com.isofuture.uptime.dto.ExecuteCheckRequest;
 import com.isofuture.uptime.entity.CheckResult;
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.CheckResultRepository;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.security.SecurityUser;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,7 +31,7 @@ import com.isofuture.uptime.security.SecurityUser;
 class CheckServiceTest extends BaseTest {
 
     @Mock
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Mock
     private CheckResultRepository checkResultRepository;
@@ -45,7 +45,7 @@ class CheckServiceTest extends BaseTest {
     private SecurityUser adminUser;
     private SecurityUser regularUser;
     private User testUser;
-    private MonitoredUrl testMonitor;
+    private Ping testPing;
 
     @BeforeEach
     void setUp() {
@@ -53,13 +53,13 @@ class CheckServiceTest extends BaseTest {
         regularUser = createRegularUser(2L, "user@test.com");
         testUser = createUser(2L, "user@test.com", "hashed", "user");
         
-        testMonitor = new MonitoredUrl();
-        testMonitor.setId(1L);
-        testMonitor.setUrl("https://example.com");
-        testMonitor.setLabel("Test Monitor");
-        testMonitor.setOwner(testUser);
-        testMonitor.setFrequencyMinutes(5);
-        testMonitor.setInProgress(false);
+        testPing = new Ping();
+        testPing.setId(1L);
+        testPing.setUrl("https://example.com");
+        testPing.setLabel("Test Ping");
+        testPing.setOwner(testUser);
+        testPing.setFrequencyMinutes(5);
+        testPing.setInProgress(false);
     }
 
     @Test
@@ -67,7 +67,7 @@ class CheckServiceTest extends BaseTest {
     void testExecuteCheck_Admin_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -75,7 +75,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
 
         // When
         CheckResultDto result = checkService.executeCheck(request, false);
@@ -83,7 +83,7 @@ class CheckServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         verify(userContext, atLeast(1)).isAdmin(); // Called in executeCheck and recordResult
-        verify(monitoredUrlRepository, atLeast(1)).findById(1L); // Called in executeCheck and recordResult
+        verify(pingRepository, atLeast(1)).findById(1L); // Called in executeCheck and recordResult
     }
 
     @Test
@@ -92,8 +92,8 @@ class CheckServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        when(monitoredUrlRepository.findByIdAndOwnerId(1L, 2L))
-            .thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findByIdAndOwnerId(1L, 2L))
+            .thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -101,7 +101,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
 
         // When
         CheckResultDto result = checkService.executeCheck(request, false);
@@ -109,7 +109,7 @@ class CheckServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         verify(userContext, atLeast(1)).isAdmin(); // Called in executeCheck and recordResult
-        verify(monitoredUrlRepository, atLeast(1)).findByIdAndOwnerId(1L, 2L); // Called in executeCheck and recordResult
+        verify(pingRepository, atLeast(1)).findByIdAndOwnerId(1L, 2L); // Called in executeCheck and recordResult
     }
 
     @Test
@@ -118,22 +118,22 @@ class CheckServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        when(monitoredUrlRepository.findByIdAndOwnerId(1L, 2L))
+        when(pingRepository.findByIdAndOwnerId(1L, 2L))
             .thenReturn(java.util.Optional.empty());
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
 
         // When/Then
         assertThrows(AccessDeniedException.class, () -> checkService.executeCheck(request, false));
     }
 
     @Test
-    @DisplayName("recordResult - Worker can record result for any monitor")
+    @DisplayName("recordResult - Worker can record result for any ping")
     void testRecordResult_Worker_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -141,7 +141,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
         request.setCheckedAt(Instant.now());
@@ -152,17 +152,17 @@ class CheckServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         assertEquals(200, result.getHttpCode());
-        verify(monitoredUrlRepository).findById(1L);
+        verify(pingRepository).findById(1L);
     }
 
     @Test
-    @DisplayName("recordResult - User can record result for own monitor")
+    @DisplayName("recordResult - User can record result for own ping")
     void testRecordResult_OwnMonitor_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        when(monitoredUrlRepository.findByIdAndOwnerId(1L, 2L))
-            .thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findByIdAndOwnerId(1L, 2L))
+            .thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -170,7 +170,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
         request.setCheckedAt(Instant.now());
@@ -180,18 +180,18 @@ class CheckServiceTest extends BaseTest {
 
         // Then
         assertNotNull(result);
-        verify(monitoredUrlRepository).findByIdAndOwnerId(1L, 2L);
+        verify(pingRepository).findByIdAndOwnerId(1L, 2L);
     }
 
     @Test
-    @DisplayName("executeCheck - Non-existent monitor throws IllegalArgumentException")
+    @DisplayName("executeCheck - Non-existent ping throws IllegalArgumentException")
     void testExecuteCheck_NotFound_ThrowsException() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+        when(pingRepository.findById(999L)).thenReturn(java.util.Optional.empty());
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(999L);
+        request.setPingId(999L);
 
         // When/Then
         assertThrows(IllegalArgumentException.class, () -> checkService.executeCheck(request, false));
@@ -199,14 +199,14 @@ class CheckServiceTest extends BaseTest {
     }
 
     @Test
-    @DisplayName("recordResult - Non-existent monitor throws IllegalArgumentException")
+    @DisplayName("recordResult - Non-existent ping throws IllegalArgumentException")
     void testRecordResult_NotFound_ThrowsException() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(999L)).thenReturn(java.util.Optional.empty());
+        when(pingRepository.findById(999L)).thenReturn(java.util.Optional.empty());
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(999L);
+        request.setPingId(999L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
 
@@ -216,16 +216,16 @@ class CheckServiceTest extends BaseTest {
     }
 
     @Test
-    @DisplayName("recordResult - User cannot record result for other user's monitor")
+    @DisplayName("recordResult - User cannot record result for other user's ping")
     void testRecordResult_OtherUserMonitor_ThrowsAccessDenied() {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        when(monitoredUrlRepository.findByIdAndOwnerId(1L, 2L))
+        when(pingRepository.findByIdAndOwnerId(1L, 2L))
             .thenReturn(java.util.Optional.empty());
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
 
@@ -239,7 +239,7 @@ class CheckServiceTest extends BaseTest {
     void testRecordResult_NullHttpCode_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -247,7 +247,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(null);
         request.setErrorMessage("Connection timeout");
         request.setResponseTimeMs(150.0);
@@ -268,7 +268,7 @@ class CheckServiceTest extends BaseTest {
     void testRecordResult_NullCheckedAt_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -276,7 +276,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
         request.setCheckedAt(null);
@@ -294,7 +294,7 @@ class CheckServiceTest extends BaseTest {
     @DisplayName("executeCheck - Worker can execute any check")
     void testExecuteCheck_Worker_Success() {
         // Given
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -302,14 +302,14 @@ class CheckServiceTest extends BaseTest {
         });
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
 
         // When
         CheckResultDto result = checkService.executeCheck(request, true);
 
         // Then
         assertNotNull(result);
-        verify(monitoredUrlRepository, atLeast(1)).findById(1L);
+        verify(pingRepository, atLeast(1)).findById(1L);
         verify(checkResultRepository).save(any(CheckResult.class));
     }
 
@@ -318,7 +318,7 @@ class CheckServiceTest extends BaseTest {
     void testRecordResult_NullResponseTime_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -326,7 +326,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(null);
         request.setCheckedAt(Instant.now());
@@ -345,7 +345,7 @@ class CheckServiceTest extends BaseTest {
     void testRecordResult_NullErrorMessage_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -353,7 +353,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(200);
         request.setResponseTimeMs(150.0);
         request.setErrorMessage(null);
@@ -374,7 +374,7 @@ class CheckServiceTest extends BaseTest {
     void testExecuteCheck_Admin_AnyMonitor_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -382,7 +382,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
 
         // When
         CheckResultDto result = checkService.executeCheck(request, false);
@@ -390,15 +390,15 @@ class CheckServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         verify(userContext, atLeast(1)).isAdmin();
-        verify(monitoredUrlRepository, atLeast(1)).findById(1L);
+        verify(pingRepository, atLeast(1)).findById(1L);
     }
 
     @Test
-    @DisplayName("recordResult - Admin can record result for any monitor")
+    @DisplayName("recordResult - Admin can record result for any ping")
     void testRecordResult_Admin_AnyMonitor_Success() {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
-        when(monitoredUrlRepository.findById(1L)).thenReturn(java.util.Optional.of(testMonitor));
+        when(pingRepository.findById(1L)).thenReturn(java.util.Optional.of(testPing));
         when(checkResultRepository.save(any(CheckResult.class))).thenAnswer(invocation -> {
             CheckResult result = invocation.getArgument(0);
             result.setId(100L);
@@ -406,7 +406,7 @@ class CheckServiceTest extends BaseTest {
         });
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(1L);
+        request.setPingId(1L);
         request.setHttpCode(500);
         request.setResponseTimeMs(200.0);
         request.setErrorMessage("Internal Server Error");
@@ -421,7 +421,7 @@ class CheckServiceTest extends BaseTest {
         assertEquals("Internal Server Error", result.getErrorMessage());
         // isAdmin() is called twice: once in log statement, once in if statement
         verify(userContext, atLeast(1)).isAdmin();
-        verify(monitoredUrlRepository).findById(1L);
+        verify(pingRepository).findById(1L);
     }
 }
 

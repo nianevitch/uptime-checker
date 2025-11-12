@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
-public class MonitoredUrlRequest {
+public class PingRequest {
 
     @NotBlank
     @Size(max = 255)

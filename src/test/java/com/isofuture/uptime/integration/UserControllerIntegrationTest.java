@@ -26,7 +26,7 @@ import com.isofuture.uptime.dto.UserRequest;
 import com.isofuture.uptime.dto.UserUpdateRequest;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.User;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.service.UserService;
@@ -57,7 +57,7 @@ class UserControllerIntegrationTest {
     private UserService userService;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     private User adminUser;
     private User regularUser;
@@ -67,7 +67,7 @@ class UserControllerIntegrationTest {
     @BeforeEach
     void setUp() throws Exception {
         // Clean up (delete in correct order to avoid foreign key violations)
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
 

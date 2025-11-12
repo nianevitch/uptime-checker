@@ -3,7 +3,7 @@ package com.isofuture.uptime.dto;
 import java.time.Instant;
 import java.util.List;
 
-public class MonitoredUrlResponse {
+public class PingResponse {
 
     private Long id;
     private Long ownerId;

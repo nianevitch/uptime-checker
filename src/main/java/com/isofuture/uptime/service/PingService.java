@@ -12,37 +12,37 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.isofuture.uptime.dto.CheckResultDto;
-import com.isofuture.uptime.dto.MonitoredUrlRequest;
-import com.isofuture.uptime.dto.MonitoredUrlResponse;
+import com.isofuture.uptime.dto.PingRequest;
+import com.isofuture.uptime.dto.PingResponse;
 import com.isofuture.uptime.dto.PendingCheckResponse;
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.User;
-import com.isofuture.uptime.mapper.MonitoredUrlMapper;
+import com.isofuture.uptime.mapper.PingMapper;
 import com.isofuture.uptime.repository.CheckResultRepository;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.SecurityUser;
 
 @Service
-public class MonitorService {
+public class PingService {
 
-    private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
+    private static final Logger log = LoggerFactory.getLogger(PingService.class);
     private static final int DEFAULT_RECENT_RESULTS = 10;
 
-    private final MonitoredUrlRepository monitoredUrlRepository;
+    private final PingRepository pingRepository;
     private final CheckResultRepository checkResultRepository;
     private final UserRepository userRepository;
-    private final MonitoredUrlMapper mapper;
+    private final PingMapper mapper;
     private final UserContext userContext;
 
-    public MonitorService(
-        MonitoredUrlRepository monitoredUrlRepository,
+    public PingService(
+        PingRepository pingRepository,
         CheckResultRepository checkResultRepository,
         UserRepository userRepository,
-        MonitoredUrlMapper mapper,
+        PingMapper mapper,
         UserContext userContext
     ) {
-        this.monitoredUrlRepository = monitoredUrlRepository;
+        this.pingRepository = pingRepository;
         this.checkResultRepository = checkResultRepository;
         this.userRepository = userRepository;
         this.mapper = mapper;
@@ -50,41 +50,41 @@ public class MonitorService {
     }
 
     @Transactional(readOnly = true)
-    public List<MonitoredUrlResponse> listCurrentUserMonitors() {
-        log.debug("Listing monitors for current user");
-        List<MonitoredUrl> entities;
+    public List<PingResponse> listCurrentUserPings() {
+        log.debug("Listing pings for current user");
+        List<Ping> entities;
         if (userContext.isAdmin()) {
-            log.debug("Admin user - listing all monitors");
-            entities = monitoredUrlRepository.findAll();
+            log.debug("Admin user - listing all pings");
+            entities = pingRepository.findAll();
         } else {
             SecurityUser currentUser = userContext.getCurrentUser();
-            log.debug("Listing monitors for user: {} (ID: {})", currentUser.getUsername(), currentUser.getId());
+            log.debug("Listing pings for user: {} (ID: {})", currentUser.getUsername(), currentUser.getId());
             User user = userRepository.findById(currentUser.getId())
                 .orElseThrow(() -> {
                     log.error("User not found: {}", currentUser.getId());
                     return new IllegalStateException("User not found");
                 });
-            entities = monitoredUrlRepository.findByOwner(user);
+            entities = pingRepository.findByOwner(user);
         }
 
-        List<MonitoredUrlResponse> responses = entities.stream()
+        List<PingResponse> responses = entities.stream()
             .map(entity -> toResponse(entity, DEFAULT_RECENT_RESULTS))
             .toList();
-        log.debug("Found {} monitors", responses.size());
+        log.debug("Found {} pings", responses.size());
         return responses;
     }
 
     @Transactional
-    public MonitoredUrlResponse createMonitor(MonitoredUrlRequest request) {
+    public PingResponse createPing(PingRequest request) {
         SecurityUser currentUser = userContext.getCurrentUser();
-        log.debug("Creating monitor: {} for user: {} (ID: {})", request.getUrl(), currentUser.getUsername(), currentUser.getId());
+        log.debug("Creating ping: {} for user: {} (ID: {})", request.getUrl(), currentUser.getUsername(), currentUser.getId());
         User owner = userRepository.findById(currentUser.getId())
             .orElseThrow(() -> {
                 log.error("User not found: {}", currentUser.getId());
                 return new IllegalStateException("User not found");
             });
 
-        MonitoredUrl entity = new MonitoredUrl();
+        Ping entity = new Ping();
         entity.setOwner(owner);
         entity.setLabel(request.getLabel());
         entity.setUrl(request.getUrl());
@@ -96,19 +96,19 @@ public class MonitorService {
         entity.setUpdatedAt(now);
 
         try {
-            MonitoredUrl saved = monitoredUrlRepository.save(entity);
-            log.info("Monitor created successfully: {} (ID: {}) for user: {}", saved.getUrl(), saved.getId(), owner.getEmail());
+            Ping saved = pingRepository.save(entity);
+            log.info("Ping created successfully: {} (ID: {}) for user: {}", saved.getUrl(), saved.getId(), owner.getEmail());
             return toResponse(saved, DEFAULT_RECENT_RESULTS);
         } catch (Exception e) {
-            log.error("Failed to create monitor: {} - {}", request.getUrl(), e.getMessage(), e);
-            throw new IllegalArgumentException("Unable to create monitor. It may already exist.", e);
+            log.error("Failed to create ping: {} - {}", request.getUrl(), e.getMessage(), e);
+            throw new IllegalArgumentException("Unable to create ping. It may already exist.", e);
         }
     }
 
     @Transactional
-    public MonitoredUrlResponse updateMonitor(Long id, MonitoredUrlRequest request) {
-        log.debug("Updating monitor: {}", id);
-        MonitoredUrl entity = loadOwnedMonitor(id);
+    public PingResponse updatePing(Long id, PingRequest request) {
+        log.debug("Updating ping: {}", id);
+        Ping entity = loadOwnedPing(id);
 
         entity.setLabel(request.getLabel());
         entity.setUrl(request.getUrl());
@@ -119,27 +119,27 @@ public class MonitorService {
         entity.setUpdatedAt(Instant.now());
 
         try {
-            MonitoredUrlResponse response = toResponse(entity, DEFAULT_RECENT_RESULTS);
-            log.info("Monitor updated successfully: {} (ID: {})", entity.getUrl(), id);
+            PingResponse response = toResponse(entity, DEFAULT_RECENT_RESULTS);
+            log.info("Ping updated successfully: {} (ID: {})", entity.getUrl(), id);
             return response;
         } catch (Exception e) {
-            log.error("Failed to update monitor: {} - {}", id, e.getMessage(), e);
-            throw new IllegalArgumentException("Unable to update monitor.", e);
+            log.error("Failed to update ping: {} - {}", id, e.getMessage(), e);
+            throw new IllegalArgumentException("Unable to update ping.", e);
         }
     }
 
     @Transactional
-    public void deleteMonitor(Long id) {
-        log.debug("Deleting monitor: {}", id);
-        MonitoredUrl entity = loadOwnedMonitor(id);
-        monitoredUrlRepository.delete(entity);
-        log.info("Monitor deleted successfully: {} (ID: {})", entity.getUrl(), id);
+    public void deletePing(Long id) {
+        log.debug("Deleting ping: {}", id);
+        Ping entity = loadOwnedPing(id);
+        pingRepository.delete(entity);
+        log.info("Ping deleted successfully: {} (ID: {})", entity.getUrl(), id);
     }
 
     @Transactional(readOnly = true)
     public List<PendingCheckResponse> getInProgressChecks(Integer limit) {
         log.debug("Getting in-progress checks (limit: {})", limit);
-        Stream<MonitoredUrl> stream = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc().stream();
+        Stream<Ping> stream = pingRepository.findByInProgressTrueOrderByUpdatedAtAsc().stream();
         if (limit != null) {
             stream = stream.limit(limit);
         }
@@ -154,7 +154,7 @@ public class MonitorService {
     public List<PendingCheckResponse> fetchNextChecks(int limit) {
         log.debug("Fetching next checks (limit: {})", limit);
         Instant now = Instant.now();
-        List<MonitoredUrl> candidates = monitoredUrlRepository.findReadyForCheck(now);
+        List<Ping> candidates = pingRepository.findReadyForCheck(now);
         log.debug("Found {} candidates for next check", candidates.size());
         List<PendingCheckResponse> next = candidates.stream()
             .limit(limit)
@@ -169,9 +169,9 @@ public class MonitorService {
         return next;
     }
 
-    private MonitoredUrlResponse toResponse(MonitoredUrl entity, int recentLimit) {
+    private PingResponse toResponse(Ping entity, int recentLimit) {
         List<CheckResultDto> latest = checkResultRepository
-            .findByMonitoredUrlOrderByCheckedAtDesc(entity)
+            .findByPingOrderByCheckedAtDesc(entity)
             .stream()
             .limit(recentLimit)
             .map(mapper::toDto)
@@ -179,21 +179,21 @@ public class MonitorService {
         return mapper.toResponse(entity, latest);
     }
 
-    private MonitoredUrl loadOwnedMonitor(Long id) {
-        log.trace("Loading monitor: {} (isAdmin: {})", id, userContext.isAdmin());
+    private Ping loadOwnedPing(Long id) {
+        log.trace("Loading ping: {} (isAdmin: {})", id, userContext.isAdmin());
         if (userContext.isAdmin()) {
-            return monitoredUrlRepository.findById(id)
+            return pingRepository.findById(id)
                 .orElseThrow(() -> {
-                    log.warn("Monitor not found: {}", id);
-                    return new IllegalArgumentException("Monitor not found");
+                    log.warn("Ping not found: {}", id);
+                    return new IllegalArgumentException("Ping not found");
                 });
         }
 
         SecurityUser currentUser = userContext.getCurrentUser();
-        return monitoredUrlRepository.findByIdAndOwnerId(id, currentUser.getId())
+        return pingRepository.findByIdAndOwnerId(id, currentUser.getId())
             .orElseThrow(() -> {
-                log.warn("Monitor not found or access denied: {} for user {}", id, currentUser.getId());
-                return new IllegalArgumentException("Monitor not found");
+                log.warn("Ping not found or access denied: {} for user {}", id, currentUser.getId());
+                return new IllegalArgumentException("Ping not found");
             });
     }
 

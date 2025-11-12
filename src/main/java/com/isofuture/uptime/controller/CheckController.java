@@ -19,7 +19,7 @@ import com.isofuture.uptime.dto.CheckResultUpdateRequest;
 import com.isofuture.uptime.dto.ExecuteCheckRequest;
 import com.isofuture.uptime.dto.PendingCheckResponse;
 import com.isofuture.uptime.service.CheckService;
-import com.isofuture.uptime.service.MonitorService;
+import com.isofuture.uptime.service.PingService;
 import com.isofuture.uptime.service.WorkerApiKeyService;
 
 import jakarta.validation.Valid;
@@ -30,12 +30,12 @@ public class CheckController {
 
     private static final Logger log = LoggerFactory.getLogger(CheckController.class);
     private final CheckService checkService;
-    private final MonitorService monitorService;
+    private final PingService pingService;
     private final WorkerApiKeyService workerApiKeyService;
 
-    public CheckController(CheckService checkService, MonitorService monitorService, WorkerApiKeyService workerApiKeyService) {
+    public CheckController(CheckService checkService, PingService pingService, WorkerApiKeyService workerApiKeyService) {
         this.checkService = checkService;
-        this.monitorService = monitorService;
+        this.pingService = pingService;
         this.workerApiKeyService = workerApiKeyService;
     }
 
@@ -50,7 +50,7 @@ public class CheckController {
         if (count != null) {
             safeCount = Math.min(Math.max(count, 1), 50);
         }
-        List<PendingCheckResponse> pending = monitorService.getInProgressChecks(safeCount);
+        List<PendingCheckResponse> pending = pingService.getInProgressChecks(safeCount);
         log.info("GET /api/checks/pending - Found {} pending checks", pending.size());
         return ResponseEntity.ok(pending);
     }
@@ -63,7 +63,7 @@ public class CheckController {
         log.debug("POST /api/checks/next - Fetching next checks (count: {})", count);
         workerApiKeyService.assertValid(apiKey);
         int safeCount = Math.min(Math.max(count, 1), 50);
-        List<PendingCheckResponse> next = monitorService.fetchNextChecks(safeCount);
+        List<PendingCheckResponse> next = pingService.fetchNextChecks(safeCount);
         log.info("POST /api/checks/next - Fetched {} next checks", next.size());
         return ResponseEntity.ok(next);
     }
@@ -72,10 +72,10 @@ public class CheckController {
     public ResponseEntity<CheckResultDto> execute(
         @Valid @RequestBody ExecuteCheckRequest request
     ) {
-        log.debug("POST /api/checks/execute - Executing check for monitor ID: {}", request.getMonitorId());
+        log.debug("POST /api/checks/execute - Executing check for ping ID: {}", request.getPingId());
         CheckResultDto result = checkService.executeCheck(request, false);
-        log.info("POST /api/checks/execute - Check executed for monitor ID: {} - HTTP {}", 
-            request.getMonitorId(), result.getHttpCode());
+        log.info("POST /api/checks/execute - Check executed for ping ID: {} - HTTP {}", 
+            request.getPingId(), result.getHttpCode());
         return ResponseEntity.ok(result);
     }
 
@@ -84,11 +84,11 @@ public class CheckController {
         @RequestHeader(name = WorkerApiKeyService.HEADER_NAME) String apiKey,
         @Valid @RequestBody CheckResultUpdateRequest request
     ) {
-        log.debug("PATCH /api/checks/result - Recording result for monitor ID: {}", request.getMonitorId());
+        log.debug("PATCH /api/checks/result - Recording result for ping ID: {}", request.getPingId());
         workerApiKeyService.assertValid(apiKey);
         CheckResultDto result = checkService.recordResult(request, true);
-        log.info("PATCH /api/checks/result - Result recorded for monitor ID: {} - HTTP {}", 
-            request.getMonitorId(), result.getHttpCode());
+        log.info("PATCH /api/checks/result - Result recorded for ping ID: {} - HTTP {}", 
+            request.getPingId(), result.getHttpCode());
         return ResponseEntity.ok(result);
     }
 }

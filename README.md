@@ -13,8 +13,8 @@ Legacy PHP code has been superseded by the new services. Use the instructions be
 ### Project layout
 
 - `backend/` – Spring Boot application (REST APIs, security, persistence).
-- `frontend/` – Angular SPA (login flow, monitor management UI).
-- `database/schema.sql` – canonical MySQL schema and seed data (users, roles, monitors, checks).
+- `frontend/` – Angular SPA (login flow, ping management UI).
+- `database/schema.sql` – canonical MySQL schema and seed data (users, roles, pings, checks).
 - `docker-compose.yml` – local development stack (MySQL, backend, Angular dev server).
 
 ---
@@ -99,13 +99,13 @@ The Angular dev server proxies directly to the backend via relative URLs (`/api/
 | `/api/auth/login` | POST | Authenticate with email/password, receive JWT |
 | `/api/auth/register` | POST | Register new account, receive JWT |
 | `/api/auth/logout` | POST | Stateless logout (client clears token) |
-| `/api/monitors` | GET | List monitors (current user, or all if admin) |
-| `/api/monitors` | POST | Create a monitor (auto-sets `next_check_at`) |
-| `/api/monitors/{id}` | PUT | Update an existing monitor (resets `next_check_at` only if null) |
-| `/api/monitors/{id}` | DELETE | Delete a monitor (ownership enforced unless admin) |
+| `/api/pings` | GET | List pings (current user, or all if admin) |
+| `/api/pings` | POST | Create a ping (auto-sets `next_check_at`) |
+| `/api/pings/{id}` | PUT | Update an existing ping (resets `next_check_at` only if null) |
+| `/api/pings/{id}` | DELETE | Delete a ping (ownership enforced unless admin) |
 | `/api/checks/pending?count=N` | GET | Claim N ready checks for an agent (marks them `in_progress`) |
 | `/api/checks/execute` | POST | Execute a check immediately (HTTP fetch performed by backend) |
-| `/api/checks/result` | POST | Record a check result (updates `check_results`, clears `in_progress`, recalculates `next_check_at`) |
+| `/api/checks/result` | POST | Record a check result (updates `check_result`, clears `in_progress`, recalculates `next_check_at`) |
 
 Agents authenticate like any other user (for example, an admin account) and can poll `/api/checks/pending`.
 
@@ -113,10 +113,10 @@ Agents authenticate like any other user (for example, an admin account) and can 
 
 ### Frontend highlights
 
-- Responsive layout with a monitors dashboard grid.
+- Responsive layout with a pings dashboard grid.
 - Authentication-aware header (login/logout).
-- Monitor CRUD form with inline validation.
-- Recent check history per monitor (HTTP status, response time, errors).
+- Ping CRUD form with inline validation.
+- Recent check history per ping (HTTP status, response time, errors).
 - “Run check” button triggers an immediate backend check (used for manual verification).
 
 ---
@@ -126,13 +126,13 @@ Agents authenticate like any other user (for example, an admin account) and can 
 The schema in `database/schema.sql` matches the Spring Boot JPA mappings:
 
 - `users`, `roles`, `user_roles` – authentication & authorization.
-- `monitored_urls` – monitor definitions (`frequency_minutes`, `next_check_at`, `in_progress`).
-- `check_results` – historical records (`http_code`, `error_message`, `response_time_ms`, `checked_at`).
+- `ping` – ping definitions (`frequency_minutes`, `next_check_at`, `in_progress`).
+- `check_result` – historical records (`http_code`, `error_message`, `response_time_ms`, `checked_at`).
 
 Seed data creates:
 - `mary@invoken.com` (password `pass`, user role).
 - `zookeeper@invoken.com` (password `pass`, admin role).
-- 15 sample monitors (Google, Yahoo, etc.).
+- 15 sample pings (Google, Yahoo, etc.).
 
 ---
 

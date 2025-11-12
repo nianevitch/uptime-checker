@@ -27,7 +27,7 @@ import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.CheckResultRepository;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -56,7 +56,7 @@ class TierControllerIntegrationTest {
     private RoleRepository roleRepository;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Autowired
     private CheckResultRepository checkResultRepository;
@@ -77,7 +77,7 @@ class TierControllerIntegrationTest {
     void setUp() throws Exception {
         // Clean up (delete in correct order to avoid foreign key violations)
         checkResultRepository.deleteAll();
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         tierRepository.deleteAll();
         roleRepository.deleteAll();

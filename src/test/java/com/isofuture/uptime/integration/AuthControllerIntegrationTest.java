@@ -25,7 +25,7 @@ import com.isofuture.uptime.dto.RegisterRequest;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.CheckResultRepository;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
 
@@ -49,7 +49,7 @@ class AuthControllerIntegrationTest {
     private RoleRepository roleRepository;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Autowired
     private CheckResultRepository checkResultRepository;
@@ -61,7 +61,7 @@ class AuthControllerIntegrationTest {
     void setUp() {
         // Clean up in correct order to avoid foreign key violations
         checkResultRepository.deleteAll();
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
 
@@ -256,7 +256,7 @@ class AuthControllerIntegrationTest {
     void testRegister_CreatesUserRole_IfNotExists() throws Exception {
         // Delete user role (clean up in correct order)
         checkResultRepository.deleteAll();
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
         assertFalse(roleRepository.findByNameIgnoreCase("user").isPresent());

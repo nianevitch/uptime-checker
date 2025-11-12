@@ -19,9 +19,9 @@ This directory contains comprehensive unit and integration tests for the Uptime 
   - User registration with role assignment
   - Duplicate email prevention
 
-- **MonitorServiceTest**: Tests monitor management with role-based access
-  - Admin sees all monitors
-  - Regular users see only own monitors
+- **PingServiceTest**: Tests ping management with role-based access
+  - Admin sees all pings
+  - Regular users see only own pings
   - Create, update, delete operations with ownership checks
 
 - **CheckServiceTest**: Tests check execution and result recording
@@ -35,10 +35,10 @@ This directory contains comprehensive unit and integration tests for the Uptime 
   - Active user filtering (excludes soft-deleted)
   - Soft delete functionality
 
-- **MonitoredUrlRepositoryTest**: Tests monitor repository queries
+- **PingRepositoryTest**: Tests ping repository queries
   - Find by owner
   - Find ready for check
-  - Find in-progress monitors
+  - Find in-progress pings
   - Ownership verification
 
 ### Integration Tests (`src/test/java/com/isofuture/uptime/integration/`)
@@ -56,16 +56,16 @@ Tests the `/api/users` endpoints with live JWT authentication:
   - Password change operations
   - Soft delete with state verification
 
-#### MonitorControllerIntegrationTest
-Tests the `/api/monitors` endpoints with role-based scenarios:
-- **Admin access**: Can see and manage all monitors
-- **User access**: Can only see and manage own monitors
-- **Cross-referencing**: Verifies monitor state via API, service, and repository
+#### PingControllerIntegrationTest
+Tests the `/api/pings` endpoints with role-based scenarios:
+- **Admin access**: Can see and manage all pings
+- **User access**: Can only see and manage own pings
+- **Cross-referencing**: Verifies ping state via API, service, and repository
 - **Scenarios tested**:
-  - List monitors (admin vs user)
-  - Create monitor
-  - Update own monitor
-  - Cannot update other user's monitor
+  - List pings (admin vs user)
+  - Create ping
+  - Update own ping
+  - Cannot update other user's ping
   - Delete operations with ownership checks
 
 #### CheckControllerIntegrationTest
@@ -78,8 +78,8 @@ Tests the `/api/checks` endpoints with comprehensive cross-referencing:
   - Repository queries
   - Database state
 - **Scenarios tested**:
-  - Execute check (own monitor)
-  - Cannot execute other user's monitor
+  - Execute check (own ping)
+  - Cannot execute other user's ping
   - Worker fetching next checks
   - Worker recording results
   - State verification after operations (inProgress, nextCheckAt, etc.)

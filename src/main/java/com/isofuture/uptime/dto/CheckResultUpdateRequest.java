@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 public class CheckResultUpdateRequest {
 
     @NotNull
-    private Long monitorId;
+    private Long pingId;
 
     private Integer httpCode;
 
@@ -17,12 +17,12 @@ public class CheckResultUpdateRequest {
 
     private Instant checkedAt;
 
-    public Long getMonitorId() {
-        return monitorId;
+    public Long getPingId() {
+        return pingId;
     }
 
-    public void setMonitorId(Long monitorId) {
-        this.monitorId = monitorId;
+    public void setPingId(Long pingId) {
+        this.pingId = pingId;
     }
 
     public Integer getHttpCode() {

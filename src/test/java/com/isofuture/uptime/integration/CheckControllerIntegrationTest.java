@@ -23,16 +23,16 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isofuture.uptime.dto.CheckResultUpdateRequest;
 import com.isofuture.uptime.dto.ExecuteCheckRequest;
 import com.isofuture.uptime.entity.CheckResult;
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.CheckResultRepository;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.SecurityUser;
 import com.isofuture.uptime.service.CheckService;
-import com.isofuture.uptime.service.MonitorService;
+import com.isofuture.uptime.service.PingService;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -56,7 +56,7 @@ class CheckControllerIntegrationTest {
     private RoleRepository roleRepository;
 
     @Autowired
-    private MonitoredUrlRepository monitoredUrlRepository;
+    private PingRepository pingRepository;
 
     @Autowired
     private CheckResultRepository checkResultRepository;
@@ -68,11 +68,11 @@ class CheckControllerIntegrationTest {
     private CheckService checkService;
 
     @Autowired
-    private MonitorService monitorService;
+    private PingService pingService;
 
     private User adminUser;
     private User regularUser;
-    private MonitoredUrl testMonitor;
+    private Ping testPing;
     private String adminToken;
     private String regularUserToken;
     private String workerApiKey = "test-worker-key-12345";
@@ -81,7 +81,7 @@ class CheckControllerIntegrationTest {
     void setUp() throws Exception {
         // Clean up
         checkResultRepository.deleteAll();
-        monitoredUrlRepository.deleteAll();
+        pingRepository.deleteAll();
         userRepository.deleteAll();
         roleRepository.deleteAll();
 
@@ -116,17 +116,17 @@ class CheckControllerIntegrationTest {
         regularUser.setRoles(Set.of(userRole));
         regularUser = userRepository.save(regularUser);
 
-        // Create monitor
-        testMonitor = new MonitoredUrl();
-        testMonitor.setOwner(regularUser);
-        testMonitor.setUrl("https://example.com");
-        testMonitor.setLabel("Test Monitor");
-        testMonitor.setFrequencyMinutes(5);
-        testMonitor.setInProgress(false);
-        testMonitor.setNextCheckAt(Instant.now().minusSeconds(60));
-        testMonitor.setCreatedAt(Instant.now());
-        testMonitor.setUpdatedAt(Instant.now());
-        testMonitor = monitoredUrlRepository.save(testMonitor);
+        // Create ping
+        testPing = new Ping();
+        testPing.setOwner(regularUser);
+        testPing.setUrl("https://example.com");
+        testPing.setLabel("Test Ping");
+        testPing.setFrequencyMinutes(5);
+        testPing.setInProgress(false);
+        testPing.setNextCheckAt(Instant.now().minusSeconds(60));
+        testPing.setCreatedAt(Instant.now());
+        testPing.setUpdatedAt(Instant.now());
+        testPing = pingRepository.save(testPing);
 
         // Get tokens
         adminToken = getAuthToken("admin@test.com", "password");
@@ -134,10 +134,10 @@ class CheckControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("POST /api/checks/execute - User can execute own monitor check")
-    void testExecute_OwnMonitor_Success() throws Exception {
+    @DisplayName("POST /api/checks/execute - User can execute own ping check")
+    void testExecute_OwnPing_Success() throws Exception {
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
 
         String response = mockMvc.perform(post("/api/checks/execute")
                 .header("Authorization", "Bearer " + regularUserToken)
@@ -158,31 +158,31 @@ class CheckControllerIntegrationTest {
         
         CheckResult savedResult = checkResultRepository.findById(resultId).orElseThrow();
         assertNotNull(savedResult);
-        assertEquals(testMonitor.getId(), savedResult.getMonitoredUrl().getId());
+        assertEquals(testPing.getId(), savedResult.getPing().getId());
         
-        // Cross-reference: Verify monitor state via repository
-        MonitoredUrl updatedMonitor = monitoredUrlRepository.findById(testMonitor.getId()).orElseThrow();
-        assertFalse(updatedMonitor.isInProgress());
-        assertNotNull(updatedMonitor.getNextCheckAt());
+        // Cross-reference: Verify ping state via repository
+        Ping updatedPing = pingRepository.findById(testPing.getId()).orElseThrow();
+        assertFalse(updatedPing.isInProgress());
+        assertNotNull(updatedPing.getNextCheckAt());
         
         // Cross-reference: Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            var monitor = monitors.stream()
-                .filter(m -> m.getId().equals(testMonitor.getId()))
+            var pings = pingService.listCurrentUserPings();
+            var ping = pings.stream()
+                .filter(m -> m.getId().equals(testPing.getId()))
                 .findFirst()
                 .orElseThrow();
-            assertFalse(monitor.isInProgress());
+            assertFalse(ping.isInProgress());
         } finally {
             clearSecurityContext();
         }
     }
 
     @Test
-    @DisplayName("POST /api/checks/execute - User cannot execute other user's monitor")
-    void testExecute_OtherUserMonitor_Forbidden() throws Exception {
-        // Create another user's monitor
+    @DisplayName("POST /api/checks/execute - User cannot execute other user's ping")
+    void testExecute_OtherUserPing_Forbidden() throws Exception {
+        // Create another user's ping
         User otherUser = new User();
         otherUser.setEmail("other@test.com");
         otherUser.setPasswordHash(passwordEncoder.encode("password"));
@@ -190,18 +190,18 @@ class CheckControllerIntegrationTest {
         otherUser.setRoles(Set.of(roleRepository.findByNameIgnoreCase("user").orElseThrow()));
         otherUser = userRepository.save(otherUser);
 
-        MonitoredUrl otherMonitor = new MonitoredUrl();
-        otherMonitor.setOwner(otherUser);
-        otherMonitor.setUrl("https://other.com");
-        otherMonitor.setLabel("Other Monitor");
-        otherMonitor.setFrequencyMinutes(5);
-        otherMonitor.setInProgress(false);
-        otherMonitor.setCreatedAt(Instant.now());
-        otherMonitor.setUpdatedAt(Instant.now());
-        otherMonitor = monitoredUrlRepository.save(otherMonitor);
+        Ping otherPing = new Ping();
+        otherPing.setOwner(otherUser);
+        otherPing.setUrl("https://other.com");
+        otherPing.setLabel("Other Ping");
+        otherPing.setFrequencyMinutes(5);
+        otherPing.setInProgress(false);
+        otherPing.setCreatedAt(Instant.now());
+        otherPing.setUpdatedAt(Instant.now());
+        otherPing = pingRepository.save(otherPing);
 
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(otherMonitor.getId());
+        request.setPingId(otherPing.getId());
 
         mockMvc.perform(post("/api/checks/execute")
                 .header("Authorization", "Bearer " + regularUserToken)
@@ -225,25 +225,25 @@ class CheckControllerIntegrationTest {
             .getResponse()
             .getContentAsString();
 
-        // Cross-reference: Verify monitor state via repository
-        MonitoredUrl updatedMonitor = monitoredUrlRepository.findById(testMonitor.getId()).orElseThrow();
-        assertTrue(updatedMonitor.isInProgress());
+        // Cross-reference: Verify ping state via repository
+        Ping updatedPing = pingRepository.findById(testPing.getId()).orElseThrow();
+        assertTrue(updatedPing.isInProgress());
         
         // Cross-reference: Verify via service call
-        var pending = monitorService.getInProgressChecks(null);
+        var pending = pingService.getInProgressChecks(null);
         assertEquals(1, pending.size());
-        assertEquals(testMonitor.getId(), pending.get(0).getMonitorId());
+        assertEquals(testPing.getId(), pending.get(0).getPingId());
     }
 
     @Test
     @DisplayName("PATCH /api/checks/result - Worker can record result")
     void testRecordResult_Worker_Success() throws Exception {
         // First, mark as in progress
-        testMonitor.setInProgress(true);
-        monitoredUrlRepository.save(testMonitor);
+        testPing.setInProgress(true);
+        pingRepository.save(testPing);
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
         request.setHttpCode(200);
         request.setResponseTimeMs(150.5);
         request.setErrorMessage(null);
@@ -267,24 +267,24 @@ class CheckControllerIntegrationTest {
         CheckResult savedResult = checkResultRepository.findById(resultId).orElseThrow();
         assertEquals(200, savedResult.getHttpCode());
         assertEquals(150.5, savedResult.getResponseTimeMs());
-        assertEquals(testMonitor.getId(), savedResult.getMonitoredUrl().getId());
+        assertEquals(testPing.getId(), savedResult.getPing().getId());
         
-        // Cross-reference: Verify monitor state via repository
-        MonitoredUrl updatedMonitor = monitoredUrlRepository.findById(testMonitor.getId()).orElseThrow();
-        assertFalse(updatedMonitor.isInProgress());
-        assertNotNull(updatedMonitor.getNextCheckAt());
+        // Cross-reference: Verify ping state via repository
+        Ping updatedPing = pingRepository.findById(testPing.getId()).orElseThrow();
+        assertFalse(updatedPing.isInProgress());
+        assertNotNull(updatedPing.getNextCheckAt());
         
         // Cross-reference: Verify via service call (set up security context first)
         setSecurityContext(regularUser);
         try {
-            var monitors = monitorService.listCurrentUserMonitors();
-            var monitor = monitors.stream()
-                .filter(m -> m.getId().equals(testMonitor.getId()))
+            var pings = pingService.listCurrentUserPings();
+            var ping = pings.stream()
+                .filter(m -> m.getId().equals(testPing.getId()))
                 .findFirst()
                 .orElseThrow();
-            assertFalse(monitor.isInProgress());
-            assertEquals(1, monitor.getRecentResults().size());
-            assertEquals(200, monitor.getRecentResults().get(0).getHttpCode());
+            assertFalse(ping.isInProgress());
+            assertEquals(1, ping.getRecentResults().size());
+            assertEquals(200, ping.getRecentResults().get(0).getHttpCode());
         } finally {
             clearSecurityContext();
         }
@@ -293,9 +293,9 @@ class CheckControllerIntegrationTest {
     @Test
     @DisplayName("GET /api/checks/pending - Worker can fetch pending checks")
     void testFetchPending_Worker_Success() throws Exception {
-        // Mark monitor as in progress
-        testMonitor.setInProgress(true);
-        monitoredUrlRepository.save(testMonitor);
+        // Mark ping as in progress
+        testPing.setInProgress(true);
+        pingRepository.save(testPing);
 
         String response = mockMvc.perform(get("/api/checks/pending?count=5")
                 .header("X-API-Key", workerApiKey))
@@ -307,16 +307,16 @@ class CheckControllerIntegrationTest {
             .getContentAsString();
 
         // Cross-reference: Verify via service call
-        var pending = monitorService.getInProgressChecks(5);
+        var pending = pingService.getInProgressChecks(5);
         assertEquals(1, pending.size());
-        assertEquals(testMonitor.getId(), pending.get(0).getMonitorId());
+        assertEquals(testPing.getId(), pending.get(0).getPingId());
     }
 
     @Test
-    @DisplayName("POST /api/checks/execute - Missing monitorId returns 400")
-    void testExecute_MissingMonitorId_ReturnsBadRequest() throws Exception {
+    @DisplayName("POST /api/checks/execute - Missing pingId returns 400")
+    void testExecute_MissingPingId_ReturnsBadRequest() throws Exception {
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        // monitorId not set
+        // pingId not set
 
         mockMvc.perform(post("/api/checks/execute")
                 .header("Authorization", "Bearer " + regularUserToken)
@@ -324,14 +324,14 @@ class CheckControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errors").exists())
-            .andExpect(jsonPath("$.errors.monitorId").exists());
+            .andExpect(jsonPath("$.errors.pingId").exists());
     }
 
     @Test
-    @DisplayName("POST /api/checks/execute - Non-existent monitor returns 403")
-    void testExecute_NonExistentMonitor_ReturnsForbidden() throws Exception {
+    @DisplayName("POST /api/checks/execute - Non-existent ping returns 403")
+    void testExecute_NonExistentPing_ReturnsForbidden() throws Exception {
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(999L); // Non-existent monitor
+        request.setPingId(999L); // Non-existent ping
 
         mockMvc.perform(post("/api/checks/execute")
                 .header("Authorization", "Bearer " + regularUserToken)
@@ -344,7 +344,7 @@ class CheckControllerIntegrationTest {
     @DisplayName("POST /api/checks/execute - Unauthorized request returns 401")
     void testExecute_Unauthorized_ReturnsUnauthorized() throws Exception {
         ExecuteCheckRequest request = new ExecuteCheckRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
 
         mockMvc.perform(post("/api/checks/execute")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -376,7 +376,7 @@ class CheckControllerIntegrationTest {
             .andExpect(jsonPath("$").isArray());
         
         // Verify that count was clamped (should not throw error)
-        var pending = monitorService.getInProgressChecks(100);
+        var pending = pingService.getInProgressChecks(100);
         assertNotNull(pending);
     }
 
@@ -384,7 +384,7 @@ class CheckControllerIntegrationTest {
     @DisplayName("PATCH /api/checks/result - Missing API key returns 401")
     void testRecordResult_MissingApiKey_ReturnsUnauthorized() throws Exception {
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
         request.setHttpCode(200);
         request.setResponseTimeMs(150.5);
 
@@ -398,7 +398,7 @@ class CheckControllerIntegrationTest {
     @DisplayName("PATCH /api/checks/result - Invalid API key returns 401")
     void testRecordResult_InvalidApiKey_ReturnsUnauthorized() throws Exception {
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
         request.setHttpCode(200);
         request.setResponseTimeMs(150.5);
 
@@ -410,10 +410,10 @@ class CheckControllerIntegrationTest {
     }
 
     @Test
-    @DisplayName("PATCH /api/checks/result - Missing monitorId returns 400")
-    void testRecordResult_MissingMonitorId_ReturnsBadRequest() throws Exception {
+    @DisplayName("PATCH /api/checks/result - Missing pingId returns 400")
+    void testRecordResult_MissingPingId_ReturnsBadRequest() throws Exception {
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        // monitorId not set
+        // pingId not set
         request.setHttpCode(200);
         request.setResponseTimeMs(150.5);
 
@@ -423,14 +423,14 @@ class CheckControllerIntegrationTest {
                 .content(objectMapper.writeValueAsString(request)))
             .andExpect(status().isBadRequest())
             .andExpect(jsonPath("$.errors").exists())
-            .andExpect(jsonPath("$.errors.monitorId").exists());
+            .andExpect(jsonPath("$.errors.pingId").exists());
     }
 
     @Test
-    @DisplayName("PATCH /api/checks/result - Non-existent monitor returns 400")
-    void testRecordResult_NonExistentMonitor_ReturnsBadRequest() throws Exception {
+    @DisplayName("PATCH /api/checks/result - Non-existent ping returns 400")
+    void testRecordResult_NonExistentPing_ReturnsBadRequest() throws Exception {
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(999L); // Non-existent monitor
+        request.setPingId(999L); // Non-existent ping
         request.setHttpCode(200);
         request.setResponseTimeMs(150.5);
 
@@ -446,11 +446,11 @@ class CheckControllerIntegrationTest {
     @DisplayName("PATCH /api/checks/result - Handles null httpCode for error scenarios")
     void testRecordResult_NullHttpCode_Success() throws Exception {
         // First, mark as in progress
-        testMonitor.setInProgress(true);
-        monitoredUrlRepository.save(testMonitor);
+        testPing.setInProgress(true);
+        pingRepository.save(testPing);
 
         CheckResultUpdateRequest request = new CheckResultUpdateRequest();
-        request.setMonitorId(testMonitor.getId());
+        request.setPingId(testPing.getId());
         request.setHttpCode(null); // Null for error scenarios
         request.setErrorMessage("Connection timeout");
         request.setResponseTimeMs(15000.0);
@@ -465,9 +465,9 @@ class CheckControllerIntegrationTest {
             .andExpect(jsonPath("$.errorMessage").value("Connection timeout"))
             .andExpect(jsonPath("$.responseTimeMs").value(15000.0));
 
-        // Verify monitor state
-        MonitoredUrl updatedMonitor = monitoredUrlRepository.findById(testMonitor.getId()).orElseThrow();
-        assertFalse(updatedMonitor.isInProgress());
+        // Verify ping state
+        Ping updatedPing = pingRepository.findById(testPing.getId()).orElseThrow();
+        assertFalse(updatedPing.isInProgress());
     }
 
     @Test

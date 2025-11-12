@@ -10,11 +10,11 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Ping;
 import com.isofuture.uptime.entity.Role;
 import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
-import com.isofuture.uptime.repository.MonitoredUrlRepository;
+import com.isofuture.uptime.repository.PingRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -25,7 +25,7 @@ public class DataSeeder implements CommandLineRunner {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final TierRepository tierRepository;
-    private final MonitoredUrlRepository monitoredUrlRepository;
+    private final PingRepository pingRepository;
     private final PasswordEncoder passwordEncoder;
     private final JdbcTemplate jdbcTemplate;
 
@@ -33,14 +33,14 @@ public class DataSeeder implements CommandLineRunner {
         UserRepository userRepository,
         RoleRepository roleRepository,
         TierRepository tierRepository,
-        MonitoredUrlRepository monitoredUrlRepository,
+        PingRepository pingRepository,
         PasswordEncoder passwordEncoder,
         JdbcTemplate jdbcTemplate
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.tierRepository = tierRepository;
-        this.monitoredUrlRepository = monitoredUrlRepository;
+        this.pingRepository = pingRepository;
         this.passwordEncoder = passwordEncoder;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -52,7 +52,7 @@ public class DataSeeder implements CommandLineRunner {
         seedRoles();
         seedTiers();
         seedUsers();
-        seedMonitors();
+        seedPings();
     }
     
     /**
@@ -183,55 +183,55 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    private void seedMonitors() {
-        // Only seed if no monitors exist
-        if (monitoredUrlRepository.count() == 0) {
+    private void seedPings() {
+        // Only seed if no pings exist
+        if (pingRepository.count() == 0) {
             User mary = userRepository.findActiveByEmailIgnoreCase("mary@invoken.com").orElse(null);
             User zookeeper = userRepository.findActiveByEmailIgnoreCase("zookeeper@invoken.com").orElse(null);
 
             if (mary != null) {
-                List<MonitoredUrl> maryMonitors = List.of(
-                    createMonitor(mary, "Status Page", "https://status.invoken.com", 5),
-                    createMonitor(mary, "Docs", "https://docs.invoken.com", 5),
-                    createMonitor(mary, "Google", "https://www.google.com", 5),
-                    createMonitor(mary, "YouTube", "https://www.youtube.com", 5),
-                    createMonitor(mary, "Gmail", "https://mail.google.com", 5),
-                    createMonitor(mary, "Google News", "https://news.google.com", 5),
-                    createMonitor(mary, "Google Maps", "https://maps.google.com", 5),
-                    createMonitor(mary, "Yahoo", "https://www.yahoo.com", 5),
-                    createMonitor(mary, "Yahoo Finance", "https://finance.yahoo.com", 5),
-                    createMonitor(mary, "Yahoo Mail", "https://mail.yahoo.com", 5)
+                List<Ping> maryPings = List.of(
+                    createPing(mary, "Status Page", "https://status.invoken.com", 5),
+                    createPing(mary, "Docs", "https://docs.invoken.com", 5),
+                    createPing(mary, "Google", "https://www.google.com", 5),
+                    createPing(mary, "YouTube", "https://www.youtube.com", 5),
+                    createPing(mary, "Gmail", "https://mail.google.com", 5),
+                    createPing(mary, "Google News", "https://news.google.com", 5),
+                    createPing(mary, "Google Maps", "https://maps.google.com", 5),
+                    createPing(mary, "Yahoo", "https://www.yahoo.com", 5),
+                    createPing(mary, "Yahoo Finance", "https://finance.yahoo.com", 5),
+                    createPing(mary, "Yahoo Mail", "https://mail.yahoo.com", 5)
                 );
-                monitoredUrlRepository.saveAll(maryMonitors);
+                pingRepository.saveAll(maryPings);
             }
 
             if (zookeeper != null) {
-                List<MonitoredUrl> zookeeperMonitors = List.of(
-                    createMonitor(zookeeper, "Admin Portal", "https://admin.invoken.com", 5),
-                    createMonitor(zookeeper, "Microsoft", "https://www.microsoft.com", 5),
-                    createMonitor(zookeeper, "Bing", "https://www.bing.com", 5),
-                    createMonitor(zookeeper, "Outlook", "https://outlook.live.com", 5),
-                    createMonitor(zookeeper, "LinkedIn", "https://www.linkedin.com", 5),
-                    createMonitor(zookeeper, "GitHub", "https://github.com", 5),
-                    createMonitor(zookeeper, "Stack Overflow", "https://stackoverflow.com", 5)
+                List<Ping> zookeeperPings = List.of(
+                    createPing(zookeeper, "Admin Portal", "https://admin.invoken.com", 5),
+                    createPing(zookeeper, "Microsoft", "https://www.microsoft.com", 5),
+                    createPing(zookeeper, "Bing", "https://www.bing.com", 5),
+                    createPing(zookeeper, "Outlook", "https://outlook.live.com", 5),
+                    createPing(zookeeper, "LinkedIn", "https://www.linkedin.com", 5),
+                    createPing(zookeeper, "GitHub", "https://github.com", 5),
+                    createPing(zookeeper, "Stack Overflow", "https://stackoverflow.com", 5)
                 );
-                monitoredUrlRepository.saveAll(zookeeperMonitors);
+                pingRepository.saveAll(zookeeperPings);
             }
         }
     }
 
-    private MonitoredUrl createMonitor(User owner, String label, String url, int frequencyMinutes) {
-        MonitoredUrl monitor = new MonitoredUrl();
-        monitor.setOwner(owner);
-        monitor.setLabel(label);
-        monitor.setUrl(url);
-        monitor.setFrequencyMinutes(frequencyMinutes);
-        monitor.setNextCheckAt(Instant.now().plus(frequencyMinutes, ChronoUnit.MINUTES));
-        monitor.setInProgress(false);
+    private Ping createPing(User owner, String label, String url, int frequencyMinutes) {
+        Ping ping = new Ping();
+        ping.setOwner(owner);
+        ping.setLabel(label);
+        ping.setUrl(url);
+        ping.setFrequencyMinutes(frequencyMinutes);
+        ping.setNextCheckAt(Instant.now().plus(frequencyMinutes, ChronoUnit.MINUTES));
+        ping.setInProgress(false);
         Instant now = Instant.now();
-        monitor.setCreatedAt(now);
-        monitor.setUpdatedAt(now);
-        return monitor;
+        ping.setCreatedAt(now);
+        ping.setUpdatedAt(now);
+        return ping;
     }
 }
 

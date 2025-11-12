@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
-import { CheckResult, Monitor, MonitorService } from './monitor.service';
+import { CheckResult, Ping, PingService } from './monitor.service';
 import { AuthService } from '../auth/auth.service';
 import { Router } from '@angular/router';
 
@@ -10,11 +10,11 @@ import { Router } from '@angular/router';
   styleUrls: ['./monitors.component.css']
 })
 export class MonitorsComponent implements OnInit {
-  monitors: Monitor[] = [];
+  monitors: Ping[] = [];
   error: string | null = null;
   success: string | null = null;
   isLoading = false;
-  selectedMonitor: Monitor | null = null;
+  selectedMonitor: Ping | null = null;
   showModal = false;
 
   readonly form = this.fb.group({
@@ -25,7 +25,7 @@ export class MonitorsComponent implements OnInit {
 
   constructor(
     private readonly fb: FormBuilder,
-    private readonly monitorService: MonitorService,
+    private readonly pingService: PingService,
     private readonly authService: AuthService,
     private readonly router: Router
   ) {}
@@ -40,13 +40,13 @@ export class MonitorsComponent implements OnInit {
 
   loadMonitors(): void {
     this.isLoading = true;
-    this.monitorService.list().subscribe({
+    this.pingService.list().subscribe({
       next: data => {
         this.monitors = data;
         this.isLoading = false;
       },
       error: err => {
-        this.error = err.error?.error ?? 'Failed to load monitors';
+        this.error = err.error?.error ?? 'Failed to load pings';
         this.isLoading = false;
       }
     });
@@ -58,7 +58,7 @@ export class MonitorsComponent implements OnInit {
     this.openModal();
   }
 
-  editMonitor(monitor: Monitor): void {
+  editMonitor(monitor: Ping): void {
     this.selectedMonitor = monitor;
     this.form.patchValue({
       url: monitor.url ?? '',
@@ -96,34 +96,34 @@ export class MonitorsComponent implements OnInit {
       frequencyMinutes: formValue.frequencyMinutes ?? 5
     };
     const request = this.selectedMonitor
-      ? this.monitorService.update(this.selectedMonitor.id, payload)
-      : this.monitorService.create(payload);
+      ? this.pingService.update(this.selectedMonitor.id, payload)
+      : this.pingService.create(payload);
     request.subscribe({
-      next: monitor => {
-        this.success = this.selectedMonitor ? 'Monitor updated.' : 'Monitor created.';
+      next: ping => {
+        this.success = this.selectedMonitor ? 'Ping updated.' : 'Ping created.';
         this.error = null;
-        this.upsertMonitor(monitor);
+        this.upsertPing(ping);
         this.selectedMonitor = null;
         this.closeModal();
         this.resetForm();
       },
       error: err => {
-        this.error = err.error?.error ?? 'Unable to save monitor.';
+        this.error = err.error?.error ?? 'Unable to save ping.';
       }
     });
   }
 
   deleteMonitor(id: number): void {
-    if (!confirm('Delete this monitor?')) {
+    if (!confirm('Delete this ping?')) {
       return;
     }
-    this.monitorService.delete(id).subscribe({
+    this.pingService.delete(id).subscribe({
       next: () => {
-        this.success = 'Monitor deleted.';
-        this.removeMonitorFromList(id);
+        this.success = 'Ping deleted.';
+        this.removePingFromList(id);
       },
       error: err => {
-        this.error = err.error?.error ?? 'Unable to delete monitor.';
+        this.error = err.error?.error ?? 'Unable to delete ping.';
       }
     });
   }
@@ -131,45 +131,45 @@ export class MonitorsComponent implements OnInit {
   runCheck(id: number): void {
     const original = this.monitors.find(m => m.id === id);
     if (original) {
-      this.upsertMonitor({ ...original, inProgress: true });
+      this.upsertPing({ ...original, inProgress: true });
     }
-    this.monitorService.execute(id).subscribe({
+    this.pingService.execute(id).subscribe({
       next: result => {
         this.success = 'Check executed.';
-        this.updateMonitorAfterCheck(id, result);
+        this.updatePingAfterCheck(id, result);
       },
       error: err => {
         this.error = err.error?.error ?? 'Failed to execute check.';
         if (original) {
-          this.upsertMonitor(original);
+          this.upsertPing(original);
         }
       }
     });
   }
 
-  private upsertMonitor(monitor: Monitor): void {
-    const index = this.monitors.findIndex(m => m.id === monitor.id);
+  private upsertPing(ping: Ping): void {
+    const index = this.monitors.findIndex(m => m.id === ping.id);
     if (index > -1) {
       this.monitors = this.monitors.map(existing =>
-        existing.id === monitor.id ? { ...existing, ...monitor } : existing
+        existing.id === ping.id ? { ...existing, ...ping } : existing
       );
     } else {
-      this.monitors = [monitor, ...this.monitors];
+      this.monitors = [ping, ...this.monitors];
     }
   }
 
-  private removeMonitorFromList(id: number): void {
+  private removePingFromList(id: number): void {
     this.monitors = this.monitors.filter(m => m.id !== id);
   }
 
-  private updateMonitorAfterCheck(id: number, result: CheckResult): void {
-    this.monitors = this.monitors.map(monitor => {
-      if (monitor.id !== id) {
-        return monitor;
+  private updatePingAfterCheck(id: number, result: CheckResult): void {
+    this.monitors = this.monitors.map(ping => {
+      if (ping.id !== id) {
+        return ping;
       }
-      const updatedResults = [result, ...monitor.recentResults].slice(0, 10);
+      const updatedResults = [result, ...ping.recentResults].slice(0, 10);
       return {
-        ...monitor,
+        ...ping,
         inProgress: false,
         nextCheckAt: result.checkedAt,
         recentResults: updatedResults

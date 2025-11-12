@@ -5,14 +5,14 @@ import jakarta.validation.constraints.NotNull;
 public class ExecuteCheckRequest {
 
     @NotNull
-    private Long monitorId;
+    private Long pingId;
 
-    public Long getMonitorId() {
-        return monitorId;
+    public Long getPingId() {
+        return pingId;
     }
 
-    public void setMonitorId(Long monitorId) {
-        this.monitorId = monitorId;
+    public void setPingId(Long pingId) {
+        this.pingId = pingId;
     }
 }
 

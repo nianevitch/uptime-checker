@@ -22,14 +22,14 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(
-    name = "monitored_url",
+    name = "ping",
     indexes = {
-        @Index(name = "IX_monitored_url_user_id", columnList = "user_id"),
-        @Index(name = "IX_monitored_url_next_check_at", columnList = "next_check_at"),
-        @Index(name = "IX_monitored_url_in_progress", columnList = "in_progress")
+        @Index(name = "IX_ping_user_id", columnList = "user_id"),
+        @Index(name = "IX_ping_next_check_at", columnList = "next_check_at"),
+        @Index(name = "IX_ping_in_progress", columnList = "in_progress")
     }
 )
-public class MonitoredUrl {
+public class Ping {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -38,7 +38,7 @@ public class MonitoredUrl {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(
         name = "user_id",
-        foreignKey = @ForeignKey(name = "FK_monitored_url_user_id")
+        foreignKey = @ForeignKey(name = "FK_ping_user_id")
     )
     private User owner;
 
@@ -63,7 +63,7 @@ public class MonitoredUrl {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
-    @OneToMany(mappedBy = "monitoredUrl", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "ping", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CheckResult> results = new ArrayList<>();
 
     public Long getId() {

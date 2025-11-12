@@ -18,7 +18,7 @@ import jakarta.persistence.Table;
 @Table(
     name = "check_result",
     indexes = {
-        @Index(name = "IX_check_result_monitored_url_id", columnList = "monitored_url_id"),
+        @Index(name = "IX_check_result_ping_id", columnList = "ping_id"),
         @Index(name = "IX_check_result_checked_at", columnList = "checked_at")
     }
 )
@@ -30,10 +30,10 @@ public class CheckResult {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(
-        name = "monitored_url_id",
-        foreignKey = @ForeignKey(name = "FK_check_result_monitored_url_id")
+        name = "ping_id",
+        foreignKey = @ForeignKey(name = "FK_check_result_ping_id")
     )
-    private MonitoredUrl monitoredUrl;
+    private Ping ping;
 
     @Column(name = "http_code")
     private Integer httpCode;
@@ -55,12 +55,12 @@ public class CheckResult {
         this.id = id;
     }
 
-    public MonitoredUrl getMonitoredUrl() {
-        return monitoredUrl;
+    public Ping getPing() {
+        return ping;
     }
 
-    public void setMonitoredUrl(MonitoredUrl monitoredUrl) {
-        this.monitoredUrl = monitoredUrl;
+    public void setPing(Ping ping) {
+        this.ping = ping;
     }
 
     public Integer getHttpCode() {
