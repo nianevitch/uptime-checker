@@ -1,0 +1,61 @@
+<div class="modal-backdrop" (click)="closeModal()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>User Profile</h2>
+      <button type="button" class="close-btn" (click)="closeModal()" aria-label="Close">×</button>
+    </div>
+
+    <div class="modal-body">
+      <div *ngIf="isLoading" class="loading">Loading profile...</div>
+
+      <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+      <div *ngIf="success" class="alert alert-success">{{ success }}</div>
+
+      <div *ngIf="!isLoading && user" class="profile-content">
+        <div class="avatar-section">
+          <div class="avatar">{{ userInitials }}</div>
+          <div class="user-info">
+            <h3>{{ user.email }}</h3>
+            <div class="roles">
+              <span class="role-badge" *ngFor="let role of user.roles">{{ role }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="!isEditing" class="view-mode">
+          <dl class="info-list">
+            <div>
+              <dt>Email</dt>
+              <dd>{{ user.email }}</dd>
+            </div>
+            <div>
+              <dt>Roles</dt>
+              <dd>
+                <span class="role-badge" *ngFor="let role of user.roles">{{ role }}</span>
+              </dd>
+            </div>
+            <div>
+              <dt>Member since</dt>
+              <dd>{{ user.createdAt | date: 'medium' }}</dd>
+            </div>
+          </dl>
+          <button type="button" class="primary" (click)="startEdit()">Edit Profile</button>
+        </div>
+
+        <div *ngIf="isEditing" class="edit-mode">
+          <form [formGroup]="form" (ngSubmit)="submit()">
+            <label>
+              Email
+              <input type="email" formControlName="email" required />
+            </label>
+            <div class="form-actions">
+              <button type="button" class="secondary" (click)="cancelEdit()">Cancel</button>
+              <button type="submit" class="primary" [disabled]="form.invalid">Save Changes</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

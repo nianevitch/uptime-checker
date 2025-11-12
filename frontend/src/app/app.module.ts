@@ -7,6 +7,7 @@ import { RouterModule, Routes } from '@angular/router';
 import { AppComponent } from './app.component';
 import { LoginComponent } from './auth/login.component';
 import { MonitorsComponent } from './monitors/monitors.component';
+import { UserProfileComponent } from './user/user-profile.component';
 import { AuthInterceptor } from './auth/auth.interceptor';
 
 const routes: Routes = [
@@ -20,7 +21,8 @@ const routes: Routes = [
   declarations: [
     AppComponent,
     LoginComponent,
-    MonitorsComponent
+    MonitorsComponent,
+    UserProfileComponent
   ],
   imports: [
     BrowserModule,

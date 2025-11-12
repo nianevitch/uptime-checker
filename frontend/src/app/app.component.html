@@ -9,12 +9,19 @@
     </nav>
     <div class="spacer"></div>
     <ng-container *ngIf="isAuthenticated; else loginLink">
-      <button class="logout" (click)="logout()">Logout</button>
+      <div class="user-menu">
+        <button class="avatar-btn" (click)="openProfile()" [attr.aria-label]="'User profile'">
+          <div class="avatar">{{ userInitials }}</div>
+        </button>
+        <button class="logout" (click)="logout()">Logout</button>
+      </div>
     </ng-container>
     <ng-template #loginLink>
       <a routerLink="login" class="login-link">Login</a>
     </ng-template>
   </header>
+
+  <app-user-profile *ngIf="showProfileModal" (close)="closeProfile()"></app-user-profile>
 
   <main class="app-content">
     <router-outlet></router-outlet>

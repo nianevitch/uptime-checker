@@ -8,6 +8,8 @@ import { AuthService } from './auth/auth.service';
   styleUrls: ['./app.component.css']
 })
 export class AppComponent {
+  showProfileModal = false;
+
   constructor(
     private readonly router: Router,
     private readonly authService: AuthService
@@ -19,6 +21,24 @@ export class AppComponent {
 
   get isAuthenticated(): boolean {
     return this.authService.isAuthenticated();
+  }
+
+  get userInitials(): string {
+    const email = this.authService.getCurrentUserEmail();
+    if (!email) return 'U';
+    const parts = email.split('@')[0].split('.');
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return email.substring(0, 2).toUpperCase();
+  }
+
+  openProfile(): void {
+    this.showProfileModal = true;
+  }
+
+  closeProfile(): void {
+    this.showProfileModal = false;
   }
 
   logout(): void {

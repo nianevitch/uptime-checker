@@ -27,13 +27,19 @@ export class AuthService {
 
   login(payload: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiBase}/login`, payload).pipe(
-      tap(res => this.storeToken(res.token))
+      tap(res => {
+        this.storeToken(res.token);
+        localStorage.setItem('uptime_user', JSON.stringify({ userId: res.userId, email: res.email }));
+      })
     );
   }
 
   register(payload: RegisterRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiBase}/register`, payload).pipe(
-      tap(res => this.storeToken(res.token))
+      tap(res => {
+        this.storeToken(res.token);
+        localStorage.setItem('uptime_user', JSON.stringify({ userId: res.userId, email: res.email }));
+      })
     );
   }
 
@@ -52,6 +58,25 @@ export class AuthService {
 
   clearToken(): void {
     localStorage.removeItem(this.tokenKey);
+    localStorage.removeItem('uptime_user');
+  }
+
+  getCurrentUserId(): number | null {
+    const stored = localStorage.getItem('uptime_user');
+    if (stored) {
+      const user = JSON.parse(stored);
+      return user.userId || null;
+    }
+    return null;
+  }
+
+  getCurrentUserEmail(): string | null {
+    const stored = localStorage.getItem('uptime_user');
+    if (stored) {
+      const user = JSON.parse(stored);
+      return user.email || null;
+    }
+    return null;
   }
 
   isAuthenticated(): boolean {
