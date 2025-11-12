@@ -9,9 +9,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.MonitoredUrlRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -46,11 +46,11 @@ public class DataSeeder implements CommandLineRunner {
 
     private void seedRoles() {
         if (roleRepository.count() == 0) {
-            RoleEntity userRole = new RoleEntity();
+            Role userRole = new Role();
             userRole.setName("user");
             roleRepository.save(userRole);
 
-            RoleEntity adminRole = new RoleEntity();
+            Role adminRole = new Role();
             adminRole.setName("admin");
             roleRepository.save(adminRole);
         }
@@ -59,14 +59,14 @@ public class DataSeeder implements CommandLineRunner {
     private void seedUsers() {
         // Only seed if no users exist
         if (userRepository.count() == 0) {
-            RoleEntity userRole = roleRepository.findByNameIgnoreCase("user")
+            Role userRole = roleRepository.findByNameIgnoreCase("user")
                 .orElseThrow(() -> new IllegalStateException("User role not found"));
-            RoleEntity adminRole = roleRepository.findByNameIgnoreCase("admin")
+            Role adminRole = roleRepository.findByNameIgnoreCase("admin")
                 .orElseThrow(() -> new IllegalStateException("Admin role not found"));
 
             // Create mary@invoken.com (user role)
             if (userRepository.findActiveByEmailIgnoreCase("mary@invoken.com").isEmpty()) {
-                UserEntity mary = new UserEntity();
+                User mary = new User();
                 mary.setEmail("mary@invoken.com");
                 mary.setPasswordHash(passwordEncoder.encode("pass"));
                 mary.setCreatedAt(Instant.now());
@@ -76,7 +76,7 @@ public class DataSeeder implements CommandLineRunner {
 
             // Create zookeeper@invoken.com (admin + user roles)
             if (userRepository.findActiveByEmailIgnoreCase("zookeeper@invoken.com").isEmpty()) {
-                UserEntity zookeeper = new UserEntity();
+                User zookeeper = new User();
                 zookeeper.setEmail("zookeeper@invoken.com");
                 zookeeper.setPasswordHash(passwordEncoder.encode("pass"));
                 zookeeper.setCreatedAt(Instant.now());
@@ -90,11 +90,11 @@ public class DataSeeder implements CommandLineRunner {
     private void seedMonitors() {
         // Only seed if no monitors exist
         if (monitoredUrlRepository.count() == 0) {
-            UserEntity mary = userRepository.findActiveByEmailIgnoreCase("mary@invoken.com").orElse(null);
-            UserEntity zookeeper = userRepository.findActiveByEmailIgnoreCase("zookeeper@invoken.com").orElse(null);
+            User mary = userRepository.findActiveByEmailIgnoreCase("mary@invoken.com").orElse(null);
+            User zookeeper = userRepository.findActiveByEmailIgnoreCase("zookeeper@invoken.com").orElse(null);
 
             if (mary != null) {
-                List<MonitoredUrlEntity> maryMonitors = List.of(
+                List<MonitoredUrl> maryMonitors = List.of(
                     createMonitor(mary, "Status Page", "https://status.invoken.com", 5),
                     createMonitor(mary, "Docs", "https://docs.invoken.com", 5),
                     createMonitor(mary, "Google", "https://www.google.com", 5),
@@ -110,7 +110,7 @@ public class DataSeeder implements CommandLineRunner {
             }
 
             if (zookeeper != null) {
-                List<MonitoredUrlEntity> zookeeperMonitors = List.of(
+                List<MonitoredUrl> zookeeperMonitors = List.of(
                     createMonitor(zookeeper, "Admin Portal", "https://admin.invoken.com", 5),
                     createMonitor(zookeeper, "Microsoft", "https://www.microsoft.com", 5),
                     createMonitor(zookeeper, "Bing", "https://www.bing.com", 5),
@@ -124,8 +124,8 @@ public class DataSeeder implements CommandLineRunner {
         }
     }
 
-    private MonitoredUrlEntity createMonitor(UserEntity owner, String label, String url, int frequencyMinutes) {
-        MonitoredUrlEntity monitor = new MonitoredUrlEntity();
+    private MonitoredUrl createMonitor(User owner, String label, String url, int frequencyMinutes) {
+        MonitoredUrl monitor = new MonitoredUrl();
         monitor.setOwner(owner);
         monitor.setLabel(label);
         monitor.setUrl(url);

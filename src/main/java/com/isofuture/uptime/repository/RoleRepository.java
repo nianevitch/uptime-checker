@@ -4,9 +4,9 @@ import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import com.isofuture.uptime.entity.RoleEntity;
+import com.isofuture.uptime.entity.Role;
 
-public interface RoleRepository extends JpaRepository<RoleEntity, Long> {
-    Optional<RoleEntity> findByNameIgnoreCase(String name);
+public interface RoleRepository extends JpaRepository<Role, Long> {
+    Optional<Role> findByNameIgnoreCase(String name);
 }
 

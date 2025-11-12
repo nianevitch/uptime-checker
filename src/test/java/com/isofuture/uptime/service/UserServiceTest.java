@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -24,8 +23,8 @@ import com.isofuture.uptime.dto.PasswordChangeRequest;
 import com.isofuture.uptime.dto.UserRequest;
 import com.isofuture.uptime.dto.UserResponse;
 import com.isofuture.uptime.dto.UserUpdateRequest;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.exception.ResourceNotFoundException;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -52,22 +51,22 @@ class UserServiceTest extends BaseTest {
 
     private SecurityUser adminUser;
     private SecurityUser regularUser;
-    private UserEntity testUser;
-    private RoleEntity userRole;
-    private RoleEntity adminRole;
+    private User testUser;
+    private Role userRole;
+    private Role adminRole;
 
     @BeforeEach
     void setUp() {
         adminUser = createAdminUser(1L, "admin@test.com");
         regularUser = createRegularUser(2L, "user@test.com");
         
-        testUser = createUserEntity(2L, "user@test.com", "hashed", "user");
+        testUser = createUser(2L, "user@test.com", "hashed", "user");
         
-        userRole = new RoleEntity();
+        userRole = new Role();
         userRole.setId(1L);
         userRole.setName("user");
         
-        adminRole = new RoleEntity();
+        adminRole = new Role();
         adminRole.setId(2L);
         adminRole.setName("admin");
     }
@@ -144,7 +143,7 @@ class UserServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        UserEntity otherUser = createUserEntity(3L, "other@test.com", "hashed", "user");
+        User otherUser = createUser(3L, "other@test.com", "hashed", "user");
         when(userRepository.findActiveById(3L)).thenReturn(Optional.of(otherUser));
 
         // When/Then
@@ -170,8 +169,8 @@ class UserServiceTest extends BaseTest {
         when(userRepository.findActiveByEmailIgnoreCase("new@test.com")).thenReturn(Optional.empty());
         when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
-        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
-            UserEntity user = invocation.getArgument(0);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
             user.setId(10L);
             return user;
         });
@@ -189,7 +188,7 @@ class UserServiceTest extends BaseTest {
         verify(userContext).isAdmin();
         verify(userRepository).findActiveByEmailIgnoreCase("new@test.com");
         verify(passwordEncoder).encode("password123");
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -232,7 +231,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.isAdmin()).thenReturn(true);
         when(userContext.getCurrentUser()).thenReturn(adminUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         UserUpdateRequest request = new UserUpdateRequest();
         request.setEmail("updated@test.com");
@@ -243,7 +242,7 @@ class UserServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         verify(userContext).isAdmin();
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -254,7 +253,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.getCurrentUser()).thenReturn(regularUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
         when(userRepository.findActiveByEmailIgnoreCase("updated@test.com")).thenReturn(Optional.empty());
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         UserUpdateRequest request = new UserUpdateRequest();
         request.setEmail("updated@test.com");
@@ -265,7 +264,7 @@ class UserServiceTest extends BaseTest {
         // Then
         assertNotNull(result);
         verify(userContext).isAdmin();
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -274,7 +273,7 @@ class UserServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        UserEntity otherUser = createUserEntity(3L, "other@test.com", "hashed", "user");
+        User otherUser = createUser(3L, "other@test.com", "hashed", "user");
         when(userRepository.findActiveById(3L)).thenReturn(Optional.of(otherUser));
 
         UserUpdateRequest request = new UserUpdateRequest();
@@ -293,7 +292,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.getCurrentUser()).thenReturn(adminUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode("newpass")).thenReturn("encoded");
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         PasswordChangeRequest request = new PasswordChangeRequest();
         request.setNewPassword("newpass");
@@ -303,7 +302,7 @@ class UserServiceTest extends BaseTest {
 
         // Then
         verify(passwordEncoder).encode("newpass");
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -314,7 +313,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.getCurrentUser()).thenReturn(regularUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
         when(passwordEncoder.encode("newpass")).thenReturn("encoded");
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         PasswordChangeRequest request = new PasswordChangeRequest();
         request.setNewPassword("newpass");
@@ -324,7 +323,7 @@ class UserServiceTest extends BaseTest {
 
         // Then
         verify(passwordEncoder).encode("newpass");
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
@@ -333,7 +332,7 @@ class UserServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(false);
         when(userContext.getCurrentUser()).thenReturn(regularUser);
-        UserEntity otherUser = createUserEntity(3L, "other@test.com", "hashed", "user");
+        User otherUser = createUser(3L, "other@test.com", "hashed", "user");
         when(userRepository.findActiveById(3L)).thenReturn(Optional.of(otherUser));
 
         PasswordChangeRequest request = new PasswordChangeRequest();
@@ -351,13 +350,13 @@ class UserServiceTest extends BaseTest {
         when(userContext.isAdmin()).thenReturn(true);
         when(userContext.getCurrentUser()).thenReturn(adminUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
-        when(userRepository.save(any(UserEntity.class))).thenReturn(testUser);
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         // When
         userService.softDelete(2L);
 
         // Then
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
         verify(userContext).isAdmin();
     }
 
@@ -378,7 +377,7 @@ class UserServiceTest extends BaseTest {
         // Given
         when(userContext.isAdmin()).thenReturn(true);
         when(userContext.getCurrentUser()).thenReturn(adminUser);
-        UserEntity adminEntity = createUserEntity(1L, "admin@test.com", "hashed", "admin", "user");
+        User adminEntity = createUser(1L, "admin@test.com", "hashed", "admin", "user");
         when(userRepository.findActiveById(1L)).thenReturn(Optional.of(adminEntity));
 
         // When/Then
@@ -395,6 +394,186 @@ class UserServiceTest extends BaseTest {
 
         // When/Then
         assertThrows(ResourceNotFoundException.class, () -> userService.softDelete(999L));
+    }
+
+    @Test
+    @DisplayName("update - Admin can update user roles")
+    void testUpdate_Admin_UpdateRoles_Success() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(true);
+        when(userContext.getCurrentUser()).thenReturn(adminUser);
+        when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
+        when(roleRepository.findByNameIgnoreCase("admin")).thenReturn(Optional.of(adminRole));
+        when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setRoles(Set.of("admin", "user"));
+
+        // When
+        UserResponse result = userService.update(2L, request);
+
+        // Then
+        assertNotNull(result);
+        verify(userContext, atLeastOnce()).isAdmin();
+        verify(roleRepository).findByNameIgnoreCase("admin");
+        verify(roleRepository).findByNameIgnoreCase("user");
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("update - Duplicate email throws IllegalArgumentException")
+    void testUpdate_DuplicateEmail_ThrowsException() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(true);
+        when(userContext.getCurrentUser()).thenReturn(adminUser);
+        when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
+        User existingUser = createUser(3L, "existing@test.com", "hashed", "user");
+        when(userRepository.findActiveByEmailIgnoreCase("existing@test.com"))
+            .thenReturn(Optional.of(existingUser));
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("existing@test.com");
+
+        // When/Then
+        assertThrows(IllegalArgumentException.class, () -> userService.update(2L, request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update - Non-existent user throws ResourceNotFoundException")
+    void testUpdate_NotFound_ThrowsException() {
+        // Given
+        when(userRepository.findActiveById(999L)).thenReturn(Optional.empty());
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("updated@test.com");
+
+        // When/Then
+        assertThrows(ResourceNotFoundException.class, () -> userService.update(999L, request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("update - User cannot update roles")
+    void testUpdate_UserCannotUpdateRoles() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(false);
+        when(userContext.getCurrentUser()).thenReturn(regularUser);
+        when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setRoles(Set.of("admin"));
+
+        // When
+        UserResponse result = userService.update(2L, request);
+
+        // Then
+        assertNotNull(result);
+        verify(userContext, atLeastOnce()).isAdmin();
+        verify(roleRepository, never()).findByNameIgnoreCase(anyString());
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("update - Update without email change")
+    void testUpdate_NoEmailChange_Success() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(false);
+        when(userContext.getCurrentUser()).thenReturn(regularUser);
+        when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
+        when(userRepository.save(any(User.class))).thenReturn(testUser);
+
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("user@test.com"); // Same email
+
+        // When
+        UserResponse result = userService.update(2L, request);
+
+        // Then
+        assertNotNull(result);
+        verify(userRepository, never()).findActiveByEmailIgnoreCase(anyString());
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("changePassword - Non-existent user throws ResourceNotFoundException")
+    void testChangePassword_NotFound_ThrowsException() {
+        // Given
+        when(userRepository.findActiveById(999L)).thenReturn(Optional.empty());
+
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setNewPassword("newpass");
+
+        // When/Then
+        assertThrows(ResourceNotFoundException.class, () -> userService.changePassword(999L, request));
+        verify(userRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("create - Admin can create user with roles")
+    void testCreate_Admin_WithRoles_Success() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(true);
+        when(userRepository.findActiveByEmailIgnoreCase("new@test.com")).thenReturn(Optional.empty());
+        when(roleRepository.findByNameIgnoreCase("admin")).thenReturn(Optional.of(adminRole));
+        when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
+        when(passwordEncoder.encode("password123")).thenReturn("encoded");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(10L);
+            return user;
+        });
+
+        UserRequest request = new UserRequest();
+        request.setEmail("new@test.com");
+        request.setPassword("password123");
+        request.setRoles(Set.of("admin", "user"));
+
+        // When
+        UserResponse result = userService.create(request);
+
+        // Then
+        assertNotNull(result);
+        assertEquals("new@test.com", result.getEmail());
+        verify(roleRepository).findByNameIgnoreCase("admin");
+        verify(roleRepository).findByNameIgnoreCase("user");
+        verify(userRepository).save(any(User.class));
+    }
+
+    @Test
+    @DisplayName("create - Admin can create user with new role")
+    void testCreate_Admin_WithNewRole_Success() {
+        // Given
+        when(userContext.isAdmin()).thenReturn(true);
+        when(userRepository.findActiveByEmailIgnoreCase("new@test.com")).thenReturn(Optional.empty());
+        when(roleRepository.findByNameIgnoreCase("custom")).thenReturn(Optional.empty());
+        when(roleRepository.save(any(Role.class))).thenAnswer(invocation -> {
+            Role role = invocation.getArgument(0);
+            role.setId(3L);
+            return role;
+        });
+        when(passwordEncoder.encode("password123")).thenReturn("encoded");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
+            user.setId(10L);
+            return user;
+        });
+
+        UserRequest request = new UserRequest();
+        request.setEmail("new@test.com");
+        request.setPassword("password123");
+        request.setRoles(Set.of("custom"));
+
+        // When
+        UserResponse result = userService.create(request);
+
+        // Then
+        assertNotNull(result);
+        verify(roleRepository).findByNameIgnoreCase("custom");
+        verify(roleRepository).save(any(Role.class));
+        verify(userRepository).save(any(User.class));
     }
 }
 

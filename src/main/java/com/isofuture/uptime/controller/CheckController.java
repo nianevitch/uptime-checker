@@ -2,6 +2,8 @@ package com.isofuture.uptime.controller;
 
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -26,6 +28,7 @@ import jakarta.validation.Valid;
 @RequestMapping("/api/checks")
 public class CheckController {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckController.class);
     private final CheckService checkService;
     private final MonitorService monitorService;
     private final WorkerApiKeyService workerApiKeyService;
@@ -41,12 +44,15 @@ public class CheckController {
         @RequestHeader(name = WorkerApiKeyService.HEADER_NAME) String apiKey,
         @RequestParam(name = "count", required = false) Integer count
     ) {
+        log.debug("GET /api/checks/pending - Fetching pending checks (count: {})", count);
         workerApiKeyService.assertValid(apiKey);
         Integer safeCount = null;
         if (count != null) {
             safeCount = Math.min(Math.max(count, 1), 50);
         }
-        return ResponseEntity.ok(monitorService.getInProgressChecks(safeCount));
+        List<PendingCheckResponse> pending = monitorService.getInProgressChecks(safeCount);
+        log.info("GET /api/checks/pending - Found {} pending checks", pending.size());
+        return ResponseEntity.ok(pending);
     }
 
     @PostMapping("/next")
@@ -54,16 +60,23 @@ public class CheckController {
         @RequestHeader(name = WorkerApiKeyService.HEADER_NAME) String apiKey,
         @RequestParam(name = "count", defaultValue = "1") int count
     ) {
+        log.debug("POST /api/checks/next - Fetching next checks (count: {})", count);
         workerApiKeyService.assertValid(apiKey);
         int safeCount = Math.min(Math.max(count, 1), 50);
-        return ResponseEntity.ok(monitorService.fetchNextChecks(safeCount));
+        List<PendingCheckResponse> next = monitorService.fetchNextChecks(safeCount);
+        log.info("POST /api/checks/next - Fetched {} next checks", next.size());
+        return ResponseEntity.ok(next);
     }
 
     @PostMapping("/execute")
     public ResponseEntity<CheckResultDto> execute(
         @Valid @RequestBody ExecuteCheckRequest request
     ) {
-        return ResponseEntity.ok(checkService.executeCheck(request, false));
+        log.debug("POST /api/checks/execute - Executing check for monitor ID: {}", request.getMonitorId());
+        CheckResultDto result = checkService.executeCheck(request, false);
+        log.info("POST /api/checks/execute - Check executed for monitor ID: {} - HTTP {}", 
+            request.getMonitorId(), result.getHttpCode());
+        return ResponseEntity.ok(result);
     }
 
     @PatchMapping("/result")
@@ -71,8 +84,12 @@ public class CheckController {
         @RequestHeader(name = WorkerApiKeyService.HEADER_NAME) String apiKey,
         @Valid @RequestBody CheckResultUpdateRequest request
     ) {
+        log.debug("PATCH /api/checks/result - Recording result for monitor ID: {}", request.getMonitorId());
         workerApiKeyService.assertValid(apiKey);
-        return ResponseEntity.ok(checkService.recordResult(request, true));
+        CheckResultDto result = checkService.recordResult(request, true);
+        log.info("PATCH /api/checks/result - Result recorded for monitor ID: {} - HTTP {}", 
+            request.getMonitorId(), result.getHttpCode());
+        return ResponseEntity.ok(result);
     }
 }
 

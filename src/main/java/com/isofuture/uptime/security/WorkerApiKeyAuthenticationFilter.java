@@ -3,6 +3,8 @@ package com.isofuture.uptime.security;
 import java.io.IOException;
 import java.util.Set;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,6 +27,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Order(Ordered.LOWEST_PRECEDENCE - 20)
 public class WorkerApiKeyAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(WorkerApiKeyAuthenticationFilter.class);
     private static final Set<String> PROTECTED_ENDPOINTS = Set.of(
         "/api/checks/next",
         "/api/checks/result",
@@ -46,6 +49,7 @@ public class WorkerApiKeyAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         if (requiresWorkerApiKey(request)) {
             String apiKey = request.getHeader(WorkerApiKeyService.HEADER_NAME);
+            log.debug("Worker API key authentication required for {} {}", request.getMethod(), request.getRequestURI());
             try {
                 workerApiKeyService.assertValid(apiKey);
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
@@ -55,8 +59,10 @@ public class WorkerApiKeyAuthenticationFilter extends OncePerRequestFilter {
                 );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+                log.debug("Worker API key authenticated successfully for {} {}", request.getMethod(), request.getRequestURI());
             } catch (Exception ex) {
-                response.sendError(HttpServletResponse.SC_FORBIDDEN, "Invalid worker API key");
+                log.warn("Worker API key authentication failed for {} {}: {}", request.getMethod(), request.getRequestURI(), ex.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid or missing worker API key");
                 return;
             }
         }

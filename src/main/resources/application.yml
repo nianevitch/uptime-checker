@@ -27,3 +27,36 @@ app:
   worker:
     api-keys: ${WORKER_API_KEYS:worker-default-41e03e338437-key}
 
+logging:
+  level:
+    root: ${LOG_LEVEL_ROOT:INFO}
+    # Application packages - can be controlled individually
+    com.isofuture.uptime: ${LOG_LEVEL_APP:INFO}
+    com.isofuture.uptime.controller: ${LOG_LEVEL_CONTROLLER:INFO}
+    com.isofuture.uptime.service: ${LOG_LEVEL_SERVICE:INFO}
+    com.isofuture.uptime.security: ${LOG_LEVEL_SECURITY:INFO}
+    com.isofuture.uptime.repository: ${LOG_LEVEL_REPOSITORY:INFO}
+    com.isofuture.uptime.config: ${LOG_LEVEL_CONFIG:INFO}
+    # Spring Framework
+    org.springframework: ${LOG_LEVEL_SPRING:WARN}
+    org.springframework.security: ${LOG_LEVEL_SPRING_SECURITY:WARN}
+    org.springframework.web: ${LOG_LEVEL_SPRING_WEB:INFO}
+    org.springframework.transaction: ${LOG_LEVEL_SPRING_TRANSACTION:WARN}
+    # Hibernate/JPA
+    org.hibernate: ${LOG_LEVEL_HIBERNATE:WARN}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:DEBUG}
+    org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_HIBERNATE_PARAMS:TRACE}
+    # Database
+    org.springframework.jdbc: ${LOG_LEVEL_JDBC:WARN}
+    # HTTP Client
+    java.net.http: ${LOG_LEVEL_HTTP_CLIENT:WARN}
+    # JWT
+    io.jsonwebtoken: ${LOG_LEVEL_JWT:WARN}
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: ${LOG_FILE:logs/uptime-checker.log}
+    max-size: ${LOG_FILE_MAX_SIZE:10MB}
+    max-history: ${LOG_FILE_MAX_HISTORY:30}
+

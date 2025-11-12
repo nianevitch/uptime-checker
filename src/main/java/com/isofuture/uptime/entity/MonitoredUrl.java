@@ -8,9 +8,11 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
@@ -19,16 +21,26 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "monitored_urls")
-public class MonitoredUrlEntity {
+@Table(
+    name = "monitored_url",
+    indexes = {
+        @Index(name = "IX_monitored_url_user_id", columnList = "user_id"),
+        @Index(name = "IX_monitored_url_next_check_at", columnList = "next_check_at"),
+        @Index(name = "IX_monitored_url_in_progress", columnList = "in_progress")
+    }
+)
+public class MonitoredUrl {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
-    private UserEntity owner;
+    @JoinColumn(
+        name = "user_id",
+        foreignKey = @ForeignKey(name = "FK_monitored_url_user_id")
+    )
+    private User owner;
 
     @Column(length = 190)
     private String label;
@@ -52,7 +64,7 @@ public class MonitoredUrlEntity {
     private Instant updatedAt;
 
     @OneToMany(mappedBy = "monitoredUrl", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CheckResultEntity> results = new ArrayList<>();
+    private List<CheckResult> results = new ArrayList<>();
 
     public Long getId() {
         return id;
@@ -62,11 +74,11 @@ public class MonitoredUrlEntity {
         this.id = id;
     }
 
-    public UserEntity getOwner() {
+    public User getOwner() {
         return owner;
     }
 
-    public void setOwner(UserEntity owner) {
+    public void setOwner(User owner) {
         this.owner = owner;
     }
 
@@ -126,11 +138,11 @@ public class MonitoredUrlEntity {
         this.updatedAt = updatedAt;
     }
 
-    public List<CheckResultEntity> getResults() {
+    public List<CheckResult> getResults() {
         return results;
     }
 
-    public void setResults(List<CheckResultEntity> results) {
+    public void setResults(List<CheckResult> results) {
         this.results = results;
     }
 

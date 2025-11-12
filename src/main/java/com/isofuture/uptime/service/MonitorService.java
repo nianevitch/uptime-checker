@@ -6,6 +6,8 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,8 +15,8 @@ import com.isofuture.uptime.dto.CheckResultDto;
 import com.isofuture.uptime.dto.MonitoredUrlRequest;
 import com.isofuture.uptime.dto.MonitoredUrlResponse;
 import com.isofuture.uptime.dto.PendingCheckResponse;
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.mapper.MonitoredUrlMapper;
 import com.isofuture.uptime.repository.CheckResultRepository;
 import com.isofuture.uptime.repository.MonitoredUrlRepository;
@@ -24,6 +26,7 @@ import com.isofuture.uptime.security.SecurityUser;
 @Service
 public class MonitorService {
 
+    private static final Logger log = LoggerFactory.getLogger(MonitorService.class);
     private static final int DEFAULT_RECENT_RESULTS = 10;
 
     private final MonitoredUrlRepository monitoredUrlRepository;
@@ -48,28 +51,40 @@ public class MonitorService {
 
     @Transactional(readOnly = true)
     public List<MonitoredUrlResponse> listCurrentUserMonitors() {
-        List<MonitoredUrlEntity> entities;
+        log.debug("Listing monitors for current user");
+        List<MonitoredUrl> entities;
         if (userContext.isAdmin()) {
+            log.debug("Admin user - listing all monitors");
             entities = monitoredUrlRepository.findAll();
         } else {
             SecurityUser currentUser = userContext.getCurrentUser();
-            UserEntity user = userRepository.findById(currentUser.getId())
-                .orElseThrow(() -> new IllegalStateException("User not found"));
+            log.debug("Listing monitors for user: {} (ID: {})", currentUser.getUsername(), currentUser.getId());
+            User user = userRepository.findById(currentUser.getId())
+                .orElseThrow(() -> {
+                    log.error("User not found: {}", currentUser.getId());
+                    return new IllegalStateException("User not found");
+                });
             entities = monitoredUrlRepository.findByOwner(user);
         }
 
-        return entities.stream()
+        List<MonitoredUrlResponse> responses = entities.stream()
             .map(entity -> toResponse(entity, DEFAULT_RECENT_RESULTS))
             .toList();
+        log.debug("Found {} monitors", responses.size());
+        return responses;
     }
 
     @Transactional
     public MonitoredUrlResponse createMonitor(MonitoredUrlRequest request) {
         SecurityUser currentUser = userContext.getCurrentUser();
-        UserEntity owner = userRepository.findById(currentUser.getId())
-            .orElseThrow(() -> new IllegalStateException("User not found"));
+        log.debug("Creating monitor: {} for user: {} (ID: {})", request.getUrl(), currentUser.getUsername(), currentUser.getId());
+        User owner = userRepository.findById(currentUser.getId())
+            .orElseThrow(() -> {
+                log.error("User not found: {}", currentUser.getId());
+                return new IllegalStateException("User not found");
+            });
 
-        MonitoredUrlEntity entity = new MonitoredUrlEntity();
+        MonitoredUrl entity = new MonitoredUrl();
         entity.setOwner(owner);
         entity.setLabel(request.getLabel());
         entity.setUrl(request.getUrl());
@@ -81,16 +96,19 @@ public class MonitorService {
         entity.setUpdatedAt(now);
 
         try {
-            MonitoredUrlEntity saved = monitoredUrlRepository.save(entity);
+            MonitoredUrl saved = monitoredUrlRepository.save(entity);
+            log.info("Monitor created successfully: {} (ID: {}) for user: {}", saved.getUrl(), saved.getId(), owner.getEmail());
             return toResponse(saved, DEFAULT_RECENT_RESULTS);
         } catch (Exception e) {
+            log.error("Failed to create monitor: {} - {}", request.getUrl(), e.getMessage(), e);
             throw new IllegalArgumentException("Unable to create monitor. It may already exist.", e);
         }
     }
 
     @Transactional
     public MonitoredUrlResponse updateMonitor(Long id, MonitoredUrlRequest request) {
-        MonitoredUrlEntity entity = loadOwnedMonitor(id);
+        log.debug("Updating monitor: {}", id);
+        MonitoredUrl entity = loadOwnedMonitor(id);
 
         entity.setLabel(request.getLabel());
         entity.setUrl(request.getUrl());
@@ -101,34 +119,44 @@ public class MonitorService {
         entity.setUpdatedAt(Instant.now());
 
         try {
-            return toResponse(entity, DEFAULT_RECENT_RESULTS);
+            MonitoredUrlResponse response = toResponse(entity, DEFAULT_RECENT_RESULTS);
+            log.info("Monitor updated successfully: {} (ID: {})", entity.getUrl(), id);
+            return response;
         } catch (Exception e) {
+            log.error("Failed to update monitor: {} - {}", id, e.getMessage(), e);
             throw new IllegalArgumentException("Unable to update monitor.", e);
         }
     }
 
     @Transactional
     public void deleteMonitor(Long id) {
-        MonitoredUrlEntity entity = loadOwnedMonitor(id);
+        log.debug("Deleting monitor: {}", id);
+        MonitoredUrl entity = loadOwnedMonitor(id);
         monitoredUrlRepository.delete(entity);
+        log.info("Monitor deleted successfully: {} (ID: {})", entity.getUrl(), id);
     }
 
     @Transactional(readOnly = true)
     public List<PendingCheckResponse> getInProgressChecks(Integer limit) {
-        Stream<MonitoredUrlEntity> stream = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc().stream();
+        log.debug("Getting in-progress checks (limit: {})", limit);
+        Stream<MonitoredUrl> stream = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc().stream();
         if (limit != null) {
             stream = stream.limit(limit);
         }
-        return stream
+        List<PendingCheckResponse> pending = stream
             .map(entity -> new PendingCheckResponse(entity.getId(), entity.getUrl(), entity.getLabel()))
             .collect(Collectors.toList());
+        log.debug("Found {} in-progress checks", pending.size());
+        return pending;
     }
 
     @Transactional
     public List<PendingCheckResponse> fetchNextChecks(int limit) {
+        log.debug("Fetching next checks (limit: {})", limit);
         Instant now = Instant.now();
-        List<MonitoredUrlEntity> candidates = monitoredUrlRepository.findReadyForCheck(now);
-        return candidates.stream()
+        List<MonitoredUrl> candidates = monitoredUrlRepository.findReadyForCheck(now);
+        log.debug("Found {} candidates for next check", candidates.size());
+        List<PendingCheckResponse> next = candidates.stream()
             .limit(limit)
             .map(entity -> {
                 entity.setInProgress(true);
@@ -137,9 +165,11 @@ public class MonitorService {
                 return response;
             })
             .collect(Collectors.toList());
+        log.info("Fetched {} next checks", next.size());
+        return next;
     }
 
-    private MonitoredUrlResponse toResponse(MonitoredUrlEntity entity, int recentLimit) {
+    private MonitoredUrlResponse toResponse(MonitoredUrl entity, int recentLimit) {
         List<CheckResultDto> latest = checkResultRepository
             .findByMonitoredUrlOrderByCheckedAtDesc(entity)
             .stream()
@@ -149,15 +179,22 @@ public class MonitorService {
         return mapper.toResponse(entity, latest);
     }
 
-    private MonitoredUrlEntity loadOwnedMonitor(Long id) {
+    private MonitoredUrl loadOwnedMonitor(Long id) {
+        log.trace("Loading monitor: {} (isAdmin: {})", id, userContext.isAdmin());
         if (userContext.isAdmin()) {
             return monitoredUrlRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
+                .orElseThrow(() -> {
+                    log.warn("Monitor not found: {}", id);
+                    return new IllegalArgumentException("Monitor not found");
+                });
         }
 
         SecurityUser currentUser = userContext.getCurrentUser();
         return monitoredUrlRepository.findByIdAndOwnerId(id, currentUser.getId())
-            .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
+            .orElseThrow(() -> {
+                log.warn("Monitor not found or access denied: {} for user {}", id, currentUser.getId());
+                return new IllegalArgumentException("Monitor not found");
+            });
     }
 
     private Instant calculateNextCheck(int frequencyMinutes) {

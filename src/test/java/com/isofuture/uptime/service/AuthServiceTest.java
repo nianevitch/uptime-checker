@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.time.Instant;
 import java.util.Optional;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -24,8 +23,8 @@ import com.isofuture.uptime.BaseTest;
 import com.isofuture.uptime.dto.LoginRequest;
 import com.isofuture.uptime.dto.LoginResponse;
 import com.isofuture.uptime.dto.RegisterRequest;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.JwtTokenProvider;
@@ -53,14 +52,14 @@ class AuthServiceTest extends BaseTest {
     @InjectMocks
     private AuthService authService;
 
-    private UserEntity testUser;
-    private RoleEntity userRole;
+    private User testUser;
+    private Role userRole;
     private SecurityUser securityUser;
 
     @BeforeEach
     void setUp() {
-        testUser = createUserEntity(1L, "test@example.com", "$2a$10$encoded", "user");
-        userRole = new RoleEntity();
+        testUser = createUser(1L, "test@example.com", "$2a$10$encoded", "user");
+        userRole = new Role();
         userRole.setId(1L);
         userRole.setName("user");
         securityUser = new SecurityUser(testUser);
@@ -119,8 +118,8 @@ class AuthServiceTest extends BaseTest {
         when(userRepository.findActiveByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
         when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$encoded");
-        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
-            UserEntity user = invocation.getArgument(0);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
             user.setId(2L);
             return user;
         });
@@ -135,7 +134,7 @@ class AuthServiceTest extends BaseTest {
         assertEquals("new@example.com", response.getEmail());
         verify(userRepository).findActiveByEmailIgnoreCase("new@example.com");
         verify(passwordEncoder).encode("password123");
-        verify(userRepository).save(any(UserEntity.class));
+        verify(userRepository).save(any(User.class));
         verify(tokenProvider).generateToken(any(SecurityUser.class));
     }
 
@@ -166,14 +165,14 @@ class AuthServiceTest extends BaseTest {
 
         when(userRepository.findActiveByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
         when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.empty());
-        when(roleRepository.save(any(RoleEntity.class))).thenAnswer(invocation -> {
-            RoleEntity role = invocation.getArgument(0);
+        when(roleRepository.save(any(Role.class))).thenAnswer(invocation -> {
+            Role role = invocation.getArgument(0);
             role.setId(1L);
             return role;
         });
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$encoded");
-        when(userRepository.save(any(UserEntity.class))).thenAnswer(invocation -> {
-            UserEntity user = invocation.getArgument(0);
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
+            User user = invocation.getArgument(0);
             user.setId(2L);
             return user;
         });
@@ -184,9 +183,10 @@ class AuthServiceTest extends BaseTest {
 
         // Then
         assertNotNull(response);
-        verify(roleRepository).save(any(RoleEntity.class));
-        verify(userRepository).save(any(UserEntity.class));
+        verify(roleRepository).save(any(Role.class));
+        verify(userRepository).save(any(User.class));
     }
 }
+
 
 

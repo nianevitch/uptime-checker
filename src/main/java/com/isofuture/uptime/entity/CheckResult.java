@@ -5,24 +5,35 @@ import java.time.Instant;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "check_results")
-public class CheckResultEntity {
+@Table(
+    name = "check_result",
+    indexes = {
+        @Index(name = "IX_check_result_monitored_url_id", columnList = "monitored_url_id"),
+        @Index(name = "IX_check_result_checked_at", columnList = "checked_at")
+    }
+)
+public class CheckResult {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "monitored_url_id")
-    private MonitoredUrlEntity monitoredUrl;
+    @JoinColumn(
+        name = "monitored_url_id",
+        foreignKey = @ForeignKey(name = "FK_check_result_monitored_url_id")
+    )
+    private MonitoredUrl monitoredUrl;
 
     @Column(name = "http_code")
     private Integer httpCode;
@@ -44,11 +55,11 @@ public class CheckResultEntity {
         this.id = id;
     }
 
-    public MonitoredUrlEntity getMonitoredUrl() {
+    public MonitoredUrl getMonitoredUrl() {
         return monitoredUrl;
     }
 
-    public void setMonitoredUrl(MonitoredUrlEntity monitoredUrl) {
+    public void setMonitoredUrl(MonitoredUrl monitoredUrl) {
         this.monitoredUrl = monitoredUrl;
     }
 

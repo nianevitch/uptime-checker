@@ -9,6 +9,8 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,14 +18,15 @@ import org.springframework.transaction.annotation.Transactional;
 import com.isofuture.uptime.dto.CheckResultDto;
 import com.isofuture.uptime.dto.CheckResultUpdateRequest;
 import com.isofuture.uptime.dto.ExecuteCheckRequest;
-import com.isofuture.uptime.entity.CheckResultEntity;
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
+import com.isofuture.uptime.entity.CheckResult;
+import com.isofuture.uptime.entity.MonitoredUrl;
 import com.isofuture.uptime.repository.CheckResultRepository;
 import com.isofuture.uptime.repository.MonitoredUrlRepository;
 
 @Service
 public class CheckService {
 
+    private static final Logger log = LoggerFactory.getLogger(CheckService.class);
     private final MonitoredUrlRepository monitoredUrlRepository;
     private final CheckResultRepository checkResultRepository;
     private final UserContext userContext;
@@ -44,7 +47,8 @@ public class CheckService {
 
     @Transactional
     public CheckResultDto executeCheck(ExecuteCheckRequest request, boolean invokedByWorker) {
-        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
+        log.debug("Executing check for monitor ID: {} (invokedByWorker: {})", request.getMonitorId(), invokedByWorker);
+        MonitoredUrl monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
 
         monitor.setInProgress(true);
         monitor.setUpdatedAt(Instant.now());
@@ -53,6 +57,7 @@ public class CheckService {
         Integer httpCode = null;
         String error = null;
 
+        log.debug("Checking URL: {}", monitor.getUrl());
         try {
             HttpRequest httpRequest = HttpRequest.newBuilder()
                 .uri(URI.create(monitor.getUrl()))
@@ -61,14 +66,17 @@ public class CheckService {
                 .build();
             HttpResponse<Void> response = httpClient.send(httpRequest, HttpResponse.BodyHandlers.discarding());
             httpCode = response.statusCode();
+            log.debug("URL check completed: {} - HTTP {}", monitor.getUrl(), httpCode);
         } catch (IOException | InterruptedException e) {
             error = e.getMessage();
+            log.warn("URL check failed: {} - {}", monitor.getUrl(), e.getMessage());
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
         }
 
         double responseTime = Duration.between(start, Instant.now()).toMillis();
+        log.debug("URL check response time: {}ms for {}", responseTime, monitor.getUrl());
 
         CheckResultUpdateRequest updateRequest = new CheckResultUpdateRequest();
         updateRequest.setMonitorId(monitor.getId());
@@ -82,9 +90,10 @@ public class CheckService {
 
     @Transactional
     public CheckResultDto recordResult(CheckResultUpdateRequest request, boolean invokedByWorker) {
-        MonitoredUrlEntity monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
+        log.debug("Recording check result for monitor ID: {} (invokedByWorker: {})", request.getMonitorId(), invokedByWorker);
+        MonitoredUrl monitor = loadAccessibleMonitor(request.getMonitorId(), invokedByWorker);
 
-        CheckResultEntity result = new CheckResultEntity();
+        CheckResult result = new CheckResult();
         result.setMonitoredUrl(monitor);
         result.setHttpCode(request.getHttpCode());
         result.setErrorMessage(request.getErrorMessage());
@@ -95,7 +104,9 @@ public class CheckService {
         monitor.setNextCheckAt(Instant.now().plus(monitor.getFrequencyMinutes(), ChronoUnit.MINUTES));
         monitor.setUpdatedAt(Instant.now());
 
-        CheckResultEntity saved = checkResultRepository.save(result);
+        CheckResult saved = checkResultRepository.save(result);
+        log.info("Check result recorded: Monitor ID {} - HTTP {} - Response time {}ms", 
+            monitor.getId(), saved.getHttpCode(), saved.getResponseTimeMs());
 
         CheckResultDto dto = new CheckResultDto();
         dto.setId(saved.getId());
@@ -106,13 +117,21 @@ public class CheckService {
         return dto;
     }
 
-    private MonitoredUrlEntity loadAccessibleMonitor(Long id, boolean invokedByWorker) {
+    private MonitoredUrl loadAccessibleMonitor(Long id, boolean invokedByWorker) {
+        log.trace("Loading monitor ID: {} (invokedByWorker: {}, isAdmin: {})", id, invokedByWorker, userContext.isAdmin());
         if (userContext.isAdmin() || invokedByWorker) {
             return monitoredUrlRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Monitor not found"));
+                .orElseThrow(() -> {
+                    log.warn("Monitor not found: {}", id);
+                    return new IllegalArgumentException("Monitor not found");
+                });
         }
-        return monitoredUrlRepository.findByIdAndOwnerId(id, userContext.getCurrentUser().getId())
-            .orElseThrow(() -> new AccessDeniedException("Forbidden"));
+        Long userId = userContext.getCurrentUser().getId();
+        return monitoredUrlRepository.findByIdAndOwnerId(id, userId)
+            .orElseThrow(() -> {
+                log.warn("Access denied: User {} attempted to access monitor {}", userId, id);
+                return new AccessDeniedException("Forbidden");
+            });
     }
 }
 

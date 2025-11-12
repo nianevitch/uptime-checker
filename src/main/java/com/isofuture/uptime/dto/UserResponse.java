@@ -4,8 +4,8 @@ import java.time.Instant;
 import java.util.Set;
 import java.util.HashSet;
 
-import com.isofuture.uptime.entity.UserEntity;
-import com.isofuture.uptime.entity.RoleEntity;
+import com.isofuture.uptime.entity.User;
+import com.isofuture.uptime.entity.Role;
 
 public class UserResponse {
 
@@ -18,17 +18,17 @@ public class UserResponse {
     public UserResponse() {
     }
 
-    public UserResponse(UserEntity entity) {
+    public UserResponse(User entity) {
         this.id = entity.getId();
         this.email = entity.getEmail();
         try {
-            Set<RoleEntity> entityRoles = entity.getRoles();
+            Set<Role> entityRoles = entity.getRoles();
             if (entityRoles != null && !entityRoles.isEmpty()) {
                 // Copy to a new HashSet to avoid Hibernate collection access issues
                 this.roles = new HashSet<>();
                 // Use toArray to avoid iterator issues with Hibernate collections
-                RoleEntity[] rolesArray = entityRoles.toArray(new RoleEntity[0]);
-                for (RoleEntity role : rolesArray) {
+                Role[] rolesArray = entityRoles.toArray(new Role[0]);
+                for (Role role : rolesArray) {
                     if (role != null && role.getName() != null) {
                         this.roles.add(role.getName());
                     }

@@ -8,16 +8,22 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-@Table(name = "roles")
-public class RoleEntity {
+@Table(
+    name = "role",
+    uniqueConstraints = {
+        @UniqueConstraint(name = "UQ_role_name", columnNames = "name")
+    }
+)
+public class Role {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 100)
+    @Column(nullable = false, length = 100)
     private String name;
 
     public Long getId() {
@@ -41,7 +47,7 @@ public class RoleEntity {
         if (this == o) {
             return true;
         }
-        if (!(o instanceof RoleEntity that)) {
+        if (!(o instanceof Role that)) {
             return false;
         }
         return Objects.equals(getName(), that.getName());

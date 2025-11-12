@@ -6,15 +6,15 @@ import org.springframework.stereotype.Component;
 
 import com.isofuture.uptime.dto.CheckResultDto;
 import com.isofuture.uptime.dto.MonitoredUrlResponse;
-import com.isofuture.uptime.entity.CheckResultEntity;
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.CheckResult;
+import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.User;
 
 @Component
 public class MonitoredUrlMapperImpl implements MonitoredUrlMapper {
 
     @Override
-    public MonitoredUrlResponse toResponse(MonitoredUrlEntity entity, List<CheckResultDto> recentResults) {
+    public MonitoredUrlResponse toResponse(MonitoredUrl entity, List<CheckResultDto> recentResults) {
         if (entity == null) {
             return null;
         }
@@ -22,7 +22,7 @@ public class MonitoredUrlMapperImpl implements MonitoredUrlMapper {
         MonitoredUrlResponse response = new MonitoredUrlResponse();
         response.setId(entity.getId());
 
-        UserEntity owner = entity.getOwner();
+        User owner = entity.getOwner();
         response.setOwnerId(owner != null ? owner.getId() : null);
 
         response.setLabel(entity.getLabel());
@@ -38,7 +38,7 @@ public class MonitoredUrlMapperImpl implements MonitoredUrlMapper {
     }
 
     @Override
-    public CheckResultDto toDto(CheckResultEntity entity) {
+    public CheckResultDto toDto(CheckResult entity) {
         if (entity == null) {
             return null;
         }

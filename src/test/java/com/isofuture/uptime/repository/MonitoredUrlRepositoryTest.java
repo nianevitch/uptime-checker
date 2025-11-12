@@ -12,9 +12,9 @@ import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.ActiveProfiles;
 
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.RoleRepository;
 
 @DataJpaTest
@@ -35,19 +35,19 @@ class MonitoredUrlRepositoryTest {
     @DisplayName("findByOwner - Returns monitors for specific owner")
     void testFindByOwner_Success() {
         // Given
-        UserEntity owner1 = createUser("owner1@test.com");
-        UserEntity owner2 = createUser("owner2@test.com");
+        User owner1 = createUser("owner1@test.com");
+        User owner2 = createUser("owner2@test.com");
         
-        MonitoredUrlEntity monitor1 = createMonitor(owner1, "https://site1.com");
-        MonitoredUrlEntity monitor2 = createMonitor(owner1, "https://site2.com");
-        MonitoredUrlEntity monitor3 = createMonitor(owner2, "https://site3.com");
+        MonitoredUrl monitor1 = createMonitor(owner1, "https://site1.com");
+        MonitoredUrl monitor2 = createMonitor(owner1, "https://site2.com");
+        MonitoredUrl monitor3 = createMonitor(owner2, "https://site3.com");
         
         entityManager.persistAndFlush(monitor1);
         entityManager.persistAndFlush(monitor2);
         entityManager.persistAndFlush(monitor3);
 
         // When
-        List<MonitoredUrlEntity> owner1Monitors = monitoredUrlRepository.findByOwner(owner1);
+        List<MonitoredUrl> owner1Monitors = monitoredUrlRepository.findByOwner(owner1);
 
         // Then
         assertEquals(2, owner1Monitors.size());
@@ -59,21 +59,21 @@ class MonitoredUrlRepositoryTest {
     @DisplayName("findReadyForCheck - Returns monitors ready for check")
     void testFindReadyForCheck_Success() {
         // Given
-        UserEntity owner = createUser("owner@test.com");
+        User owner = createUser("owner@test.com");
         
-        MonitoredUrlEntity ready1 = createMonitor(owner, "https://ready1.com");
+        MonitoredUrl ready1 = createMonitor(owner, "https://ready1.com");
         ready1.setNextCheckAt(Instant.now().minusSeconds(60));
         ready1.setInProgress(false);
         
-        MonitoredUrlEntity ready2 = createMonitor(owner, "https://ready2.com");
+        MonitoredUrl ready2 = createMonitor(owner, "https://ready2.com");
         ready2.setNextCheckAt(null);
         ready2.setInProgress(false);
         
-        MonitoredUrlEntity notReady = createMonitor(owner, "https://notready.com");
+        MonitoredUrl notReady = createMonitor(owner, "https://notready.com");
         notReady.setNextCheckAt(Instant.now().plusSeconds(3600));
         notReady.setInProgress(false);
         
-        MonitoredUrlEntity inProgress = createMonitor(owner, "https://inprogress.com");
+        MonitoredUrl inProgress = createMonitor(owner, "https://inprogress.com");
         inProgress.setNextCheckAt(Instant.now().minusSeconds(60));
         inProgress.setInProgress(true);
         
@@ -83,7 +83,7 @@ class MonitoredUrlRepositoryTest {
         entityManager.persistAndFlush(inProgress);
 
         // When
-        List<MonitoredUrlEntity> ready = monitoredUrlRepository.findReadyForCheck(Instant.now());
+        List<MonitoredUrl> ready = monitoredUrlRepository.findReadyForCheck(Instant.now());
 
         // Then
         assertEquals(2, ready.size());
@@ -95,8 +95,8 @@ class MonitoredUrlRepositoryTest {
     @DisplayName("findByIdAndOwnerId - Returns monitor if owned by user")
     void testFindByIdAndOwnerId_Success() {
         // Given
-        UserEntity owner = createUser("owner@test.com");
-        MonitoredUrlEntity monitor = createMonitor(owner, "https://site.com");
+        User owner = createUser("owner@test.com");
+        MonitoredUrl monitor = createMonitor(owner, "https://site.com");
         entityManager.persistAndFlush(monitor);
 
         // When
@@ -111,17 +111,17 @@ class MonitoredUrlRepositoryTest {
     @DisplayName("findByInProgressTrueOrderByUpdatedAtAsc - Returns only in-progress monitors")
     void testFindByInProgressTrue_Success() {
         // Given
-        UserEntity owner = createUser("owner@test.com");
+        User owner = createUser("owner@test.com");
         
-        MonitoredUrlEntity inProgress1 = createMonitor(owner, "https://progress1.com");
+        MonitoredUrl inProgress1 = createMonitor(owner, "https://progress1.com");
         inProgress1.setInProgress(true);
         inProgress1.setUpdatedAt(Instant.now().minusSeconds(120));
         
-        MonitoredUrlEntity inProgress2 = createMonitor(owner, "https://progress2.com");
+        MonitoredUrl inProgress2 = createMonitor(owner, "https://progress2.com");
         inProgress2.setInProgress(true);
         inProgress2.setUpdatedAt(Instant.now().minusSeconds(60));
         
-        MonitoredUrlEntity notInProgress = createMonitor(owner, "https://notprogress.com");
+        MonitoredUrl notInProgress = createMonitor(owner, "https://notprogress.com");
         notInProgress.setInProgress(false);
         
         entityManager.persistAndFlush(inProgress1);
@@ -129,7 +129,7 @@ class MonitoredUrlRepositoryTest {
         entityManager.persistAndFlush(notInProgress);
 
         // When
-        List<MonitoredUrlEntity> inProgress = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc();
+        List<MonitoredUrl> inProgress = monitoredUrlRepository.findByInProgressTrueOrderByUpdatedAtAsc();
 
         // Then
         assertEquals(2, inProgress.size());
@@ -137,16 +137,16 @@ class MonitoredUrlRepositoryTest {
         assertEquals("https://progress2.com", inProgress.get(1).getUrl());
     }
 
-    private UserEntity createUser(String email) {
-        UserEntity user = new UserEntity();
+    private User createUser(String email) {
+        User user = new User();
         user.setEmail(email);
         user.setPasswordHash("hashed");
         user.setCreatedAt(Instant.now());
         
         // Check if role exists, otherwise create it
-        RoleEntity role = roleRepository.findByNameIgnoreCase("user")
+        Role role = roleRepository.findByNameIgnoreCase("user")
             .orElseGet(() -> {
-                RoleEntity newRole = new RoleEntity();
+                Role newRole = new Role();
                 newRole.setName("user");
                 entityManager.persist(newRole);
                 entityManager.flush();
@@ -158,8 +158,8 @@ class MonitoredUrlRepositoryTest {
         return user;
     }
 
-    private MonitoredUrlEntity createMonitor(UserEntity owner, String url) {
-        MonitoredUrlEntity monitor = new MonitoredUrlEntity();
+    private MonitoredUrl createMonitor(User owner, String url) {
+        MonitoredUrl monitor = new MonitoredUrl();
         monitor.setOwner(owner);
         monitor.setUrl(url);
         monitor.setLabel("Test Monitor");

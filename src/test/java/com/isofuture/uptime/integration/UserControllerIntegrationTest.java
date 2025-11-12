@@ -24,8 +24,8 @@ import com.isofuture.uptime.dto.LoginRequest;
 import com.isofuture.uptime.dto.PasswordChangeRequest;
 import com.isofuture.uptime.dto.UserRequest;
 import com.isofuture.uptime.dto.UserUpdateRequest;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.MonitoredUrlRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -59,8 +59,8 @@ class UserControllerIntegrationTest {
     @Autowired
     private MonitoredUrlRepository monitoredUrlRepository;
 
-    private UserEntity adminUser;
-    private UserEntity regularUser;
+    private User adminUser;
+    private User regularUser;
     private String adminToken;
     private String regularUserToken;
 
@@ -72,22 +72,22 @@ class UserControllerIntegrationTest {
         roleRepository.deleteAll();
 
         // Create roles (check if they exist first)
-        RoleEntity userRole = roleRepository.findByNameIgnoreCase("user")
+        Role userRole = roleRepository.findByNameIgnoreCase("user")
             .orElseGet(() -> {
-                RoleEntity role = new RoleEntity();
+                Role role = new Role();
                 role.setName("user");
                 return roleRepository.save(role);
             });
 
-        RoleEntity adminRole = roleRepository.findByNameIgnoreCase("admin")
+        Role adminRole = roleRepository.findByNameIgnoreCase("admin")
             .orElseGet(() -> {
-                RoleEntity role = new RoleEntity();
+                Role role = new Role();
                 role.setName("admin");
                 return roleRepository.save(role);
             });
 
         // Create admin user
-        adminUser = new UserEntity();
+        adminUser = new User();
         adminUser.setEmail("admin@test.com");
         adminUser.setPasswordHash(passwordEncoder.encode("password"));
         adminUser.setCreatedAt(Instant.now());
@@ -95,7 +95,7 @@ class UserControllerIntegrationTest {
         adminUser = userRepository.save(adminUser);
 
         // Create regular user
-        regularUser = new UserEntity();
+        regularUser = new User();
         regularUser.setEmail("user@test.com");
         regularUser.setPasswordHash(passwordEncoder.encode("password"));
         regularUser.setCreatedAt(Instant.now());
@@ -167,7 +167,7 @@ class UserControllerIntegrationTest {
             .andExpect(jsonPath("$.email").value("new@test.com"));
 
         // Verify via service call
-        UserEntity created = userRepository.findActiveByEmailIgnoreCase("new@test.com").orElseThrow();
+        User created = userRepository.findActiveByEmailIgnoreCase("new@test.com").orElseThrow();
         assertNotNull(created);
         assertEquals("new@test.com", created.getEmail());
     }
@@ -200,7 +200,7 @@ class UserControllerIntegrationTest {
             .andExpect(jsonPath("$.email").value("updated@test.com"));
 
         // Verify via service call
-        UserEntity updated = userRepository.findActiveById(regularUser.getId()).orElseThrow();
+        User updated = userRepository.findActiveById(regularUser.getId()).orElseThrow();
         assertEquals("updated@test.com", updated.getEmail());
     }
 
@@ -228,9 +228,13 @@ class UserControllerIntegrationTest {
                 .header("Authorization", "Bearer " + adminToken))
             .andExpect(status().isNoContent());
 
-        // Verify via service call - user should be soft deleted
-        UserEntity deleted = userRepository.findById(regularUser.getId()).orElseThrow();
-        assertNotNull(deleted.getDeletedAt());
+        // Verify via service call - user should be soft deleted (record still exists in DB)
+        User deleted = userRepository.findByIdIncludingDeleted(regularUser.getId()).orElseThrow();
+        assertNotNull(deleted.getDeletedAt(), "User should be soft deleted (deletedAt should be set)");
+        
+        // Verify the user record still exists in the database (not physically deleted)
+        assertNotNull(deleted.getId(), "User record should still exist in database");
+        assertEquals(regularUser.getEmail(), deleted.getEmail(), "User email should remain unchanged");
         
         // Verify via API - should return 404
         mockMvc.perform(get("/api/users/" + regularUser.getId())
@@ -244,6 +248,151 @@ class UserControllerIntegrationTest {
         mockMvc.perform(delete("/api/users/" + adminUser.getId())
                 .header("Authorization", "Bearer " + regularUserToken))
             .andExpect(status().isForbidden());
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id} - Update with invalid email format returns 400")
+    void testUpdate_InvalidEmail_ReturnsBadRequest() throws Exception {
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("invalid-email");
+
+        mockMvc.perform(put("/api/users/" + regularUser.getId())
+                .header("Authorization", "Bearer " + regularUserToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors").exists())
+            .andExpect(jsonPath("$.errors.email").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id} - Update with duplicate email returns 400")
+    void testUpdate_DuplicateEmail_ReturnsBadRequest() throws Exception {
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("admin@test.com"); // Already exists
+
+        mockMvc.perform(put("/api/users/" + regularUser.getId())
+                .header("Authorization", "Bearer " + regularUserToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id}/password - Missing password returns 400")
+    void testChangePassword_MissingPassword_ReturnsBadRequest() throws Exception {
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        // No password set
+
+        mockMvc.perform(put("/api/users/" + regularUser.getId() + "/password")
+                .header("Authorization", "Bearer " + regularUserToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors").exists())
+            .andExpect(jsonPath("$.errors.newPassword").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id}/password - Non-existent user returns 404")
+    void testChangePassword_NonExistentUser_ReturnsNotFound() throws Exception {
+        PasswordChangeRequest request = new PasswordChangeRequest();
+        request.setNewPassword("newpassword123");
+
+        mockMvc.perform(put("/api/users/999/password")
+                .header("Authorization", "Bearer " + regularUserToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("GET /api/users/{id} - Non-existent user returns 404")
+    void testGetById_NonExistentUser_ReturnsNotFound() throws Exception {
+        mockMvc.perform(get("/api/users/999")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNotFound())
+            .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @DisplayName("PUT /api/users/{id} - Non-existent user returns 404")
+    void testUpdate_NonExistentUser_ReturnsNotFound() throws Exception {
+        UserUpdateRequest request = new UserUpdateRequest();
+        request.setEmail("updated@test.com");
+
+        mockMvc.perform(put("/api/users/999")
+                .header("Authorization", "Bearer " + regularUserToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/users/{id} - Non-existent user returns 404")
+    void testDelete_NonExistentUser_ReturnsNotFound() throws Exception {
+        mockMvc.perform(delete("/api/users/999")
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("DELETE /api/users/{id} - Admin cannot delete own account")
+    void testDelete_AdminOwnAccount_ReturnsBadRequest() throws Exception {
+        mockMvc.perform(delete("/api/users/" + adminUser.getId())
+                .header("Authorization", "Bearer " + adminToken))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").exists())
+            .andExpect(jsonPath("$.error").value("Cannot delete your own account"));
+    }
+
+    @Test
+    @DisplayName("POST /api/users - Create user with duplicate email returns 400")
+    void testCreate_DuplicateEmail_ReturnsBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setEmail("admin@test.com"); // Already exists
+        request.setPassword("password123");
+        request.setRoles(Set.of("user"));
+
+        mockMvc.perform(post("/api/users")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.error").exists());
+    }
+
+    @Test
+    @DisplayName("POST /api/users - Create user with invalid email returns 400")
+    void testCreate_InvalidEmail_ReturnsBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setEmail("invalid-email");
+        request.setPassword("password123");
+
+        mockMvc.perform(post("/api/users")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors").exists())
+            .andExpect(jsonPath("$.errors.email").exists());
+    }
+
+    @Test
+    @DisplayName("POST /api/users - Create user with missing password returns 400")
+    void testCreate_MissingPassword_ReturnsBadRequest() throws Exception {
+        UserRequest request = new UserRequest();
+        request.setEmail("new@test.com");
+        // No password
+
+        mockMvc.perform(post("/api/users")
+                .header("Authorization", "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(request)))
+            .andExpect(status().isBadRequest())
+            .andExpect(jsonPath("$.errors").exists())
+            .andExpect(jsonPath("$.errors.password").exists());
     }
 
     private String getAuthToken(String email, String password) throws Exception {

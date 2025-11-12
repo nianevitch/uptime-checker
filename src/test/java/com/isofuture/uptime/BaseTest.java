@@ -6,8 +6,8 @@ import java.util.stream.Collectors;
 
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.security.SecurityUser;
 
 /**
@@ -15,16 +15,16 @@ import com.isofuture.uptime.security.SecurityUser;
  */
 public abstract class BaseTest {
 
-    protected UserEntity createUserEntity(Long id, String email, String passwordHash, String... roles) {
-        UserEntity user = new UserEntity();
+    protected User createUser(Long id, String email, String passwordHash, String... roles) {
+        User user = new User();
         user.setId(id);
         user.setEmail(email);
         user.setPasswordHash(passwordHash);
         user.setCreatedAt(Instant.now());
         
-        Set<RoleEntity> roleEntities = Set.of(roles).stream()
+        Set<Role> roleEntities = Set.of(roles).stream()
             .map(roleName -> {
-                RoleEntity role = new RoleEntity();
+                Role role = new Role();
                 role.setName(roleName);
                 return role;
             })
@@ -35,7 +35,7 @@ public abstract class BaseTest {
     }
 
     protected SecurityUser createSecurityUser(Long id, String email, String... roles) {
-        UserEntity user = createUserEntity(id, email, "hashed", roles);
+        User user = createUser(id, email, "hashed", roles);
         return new SecurityUser(user);
     }
 
@@ -47,5 +47,7 @@ public abstract class BaseTest {
         return createSecurityUser(id, email, "user");
     }
 }
+
+
 
 

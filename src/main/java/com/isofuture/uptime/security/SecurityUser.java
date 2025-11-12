@@ -8,7 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.User;
 
 public class SecurityUser implements UserDetails {
 
@@ -18,7 +18,7 @@ public class SecurityUser implements UserDetails {
     private final String passwordHash;
     private final Set<String> roles;
 
-    public SecurityUser(UserEntity entity) {
+    public SecurityUser(User entity) {
         this.id = entity.getId();
         this.email = entity.getEmail();
         this.passwordHash = entity.getPasswordHash();

@@ -7,24 +7,42 @@ import java.util.Set;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.ForeignKey;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
+/**
+ * User - Represents a user in the system.
+ * 
+ * IMPORTANT: User records are NEVER physically deleted from the database.
+ * Deletion is done via soft delete by setting the deletedAt timestamp.
+ * All queries filter by deletedAt IS NULL to exclude soft-deleted users.
+ */
 @Entity
-@Table(name = "users")
-public class UserEntity {
+@Table(
+    name = "user",
+    indexes = {
+        @Index(name = "IX_user_deleted_at", columnList = "deleted_at")
+    },
+    uniqueConstraints = {
+        @UniqueConstraint(name = "UQ_user_email", columnNames = "email")
+    }
+)
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 190)
+    @Column(nullable = false, length = 190)
     private String email;
 
     @Column(name = "password_hash", nullable = false)
@@ -38,11 +56,21 @@ public class UserEntity {
 
     @ManyToMany(fetch = FetchType.EAGER)
     @JoinTable(
-        name = "user_roles",
-        joinColumns = @JoinColumn(name = "user_id"),
-        inverseJoinColumns = @JoinColumn(name = "role_id")
+        name = "user_role",
+        indexes = {
+            @Index(name = "IX_user_role_user_id", columnList = "user_id"),
+            @Index(name = "IX_user_role_role_id", columnList = "role_id")
+        },
+        joinColumns = @JoinColumn(
+            name = "user_id",
+            foreignKey = @ForeignKey(name = "FK_user_role_user_id")
+        ),
+        inverseJoinColumns = @JoinColumn(
+            name = "role_id",
+            foreignKey = @ForeignKey(name = "FK_user_role_role_id")
+        )
     )
-    private Set<RoleEntity> roles = new HashSet<>();
+    private Set<Role> roles = new HashSet<>();
 
     public Long getId() {
         return id;
@@ -76,11 +104,11 @@ public class UserEntity {
         this.createdAt = createdAt;
     }
 
-    public Set<RoleEntity> getRoles() {
+    public Set<Role> getRoles() {
         return roles;
     }
 
-    public void setRoles(Set<RoleEntity> roles) {
+    public void setRoles(Set<Role> roles) {
         this.roles = roles;
     }
 

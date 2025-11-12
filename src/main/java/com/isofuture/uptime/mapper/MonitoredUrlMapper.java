@@ -4,13 +4,13 @@ import java.util.List;
 
 import com.isofuture.uptime.dto.CheckResultDto;
 import com.isofuture.uptime.dto.MonitoredUrlResponse;
-import com.isofuture.uptime.entity.CheckResultEntity;
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
+import com.isofuture.uptime.entity.CheckResult;
+import com.isofuture.uptime.entity.MonitoredUrl;
 
 public interface MonitoredUrlMapper {
 
-    MonitoredUrlResponse toResponse(MonitoredUrlEntity entity, List<CheckResultDto> recentResults);
+    MonitoredUrlResponse toResponse(MonitoredUrl entity, List<CheckResultDto> recentResults);
 
-    CheckResultDto toDto(CheckResultEntity entity);
+    CheckResultDto toDto(CheckResult entity);
 }
 

@@ -2,6 +2,8 @@ package com.isofuture.uptime.security;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
@@ -21,6 +23,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Order(Ordered.LOWEST_PRECEDENCE - 10)
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private final JwtTokenProvider tokenProvider;
     private final DatabaseUserDetailsService userDetailsService;
 
@@ -41,11 +44,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith("Bearer ")) {
             String token = header.substring(7);
+            log.trace("JWT token found in request to {}", request.getRequestURI());
             if (tokenProvider.validate(token)) {
                 try {
                     Claims claims = tokenProvider.parseClaims(token);
                     String username = claims.getSubject();
                     if (username != null) {
+                        log.debug("Authenticating user: {}", username);
                         SecurityUser userDetails = (SecurityUser) userDetailsService.loadUserByUsername(username);
                         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                             userDetails,
@@ -54,13 +59,19 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
                         authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                         SecurityContextHolder.getContext().setAuthentication(authentication);
+                        log.debug("User authenticated successfully: {} (ID: {})", username, userDetails.getId());
                     }
                 } catch (Exception e) {
+                    log.warn("Failed to authenticate user from JWT token: {}", e.getMessage());
                     // If user cannot be loaded (e.g., email changed, user deleted), clear context and continue
                     // The request will be handled as unauthenticated
                     SecurityContextHolder.clearContext();
                 }
+            } else {
+                log.debug("Invalid JWT token in request to {}", request.getRequestURI());
             }
+        } else {
+            log.trace("No JWT token found in request to {}", request.getRequestURI());
         }
 
         filterChain.doFilter(request, response);

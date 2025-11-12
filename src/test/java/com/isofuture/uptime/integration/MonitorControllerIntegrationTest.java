@@ -22,9 +22,9 @@ import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.isofuture.uptime.dto.LoginRequest;
 import com.isofuture.uptime.dto.MonitoredUrlRequest;
-import com.isofuture.uptime.entity.MonitoredUrlEntity;
-import com.isofuture.uptime.entity.RoleEntity;
-import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.MonitoredUrl;
+import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.MonitoredUrlRepository;
 import com.isofuture.uptime.repository.RoleRepository;
 import com.isofuture.uptime.repository.UserRepository;
@@ -61,10 +61,10 @@ class MonitorControllerIntegrationTest {
     @Autowired
     private MonitorService monitorService;
 
-    private UserEntity adminUser;
-    private UserEntity regularUser;
-    private MonitoredUrlEntity adminMonitor;
-    private MonitoredUrlEntity userMonitor;
+    private User adminUser;
+    private User regularUser;
+    private MonitoredUrl adminMonitor;
+    private MonitoredUrl userMonitor;
     private String adminToken;
     private String regularUserToken;
 
@@ -76,22 +76,22 @@ class MonitorControllerIntegrationTest {
         roleRepository.deleteAll();
 
         // Create roles (check if they exist first)
-        RoleEntity userRole = roleRepository.findByNameIgnoreCase("user")
+        Role userRole = roleRepository.findByNameIgnoreCase("user")
             .orElseGet(() -> {
-                RoleEntity role = new RoleEntity();
+                Role role = new Role();
                 role.setName("user");
                 return roleRepository.save(role);
             });
 
-        RoleEntity adminRole = roleRepository.findByNameIgnoreCase("admin")
+        Role adminRole = roleRepository.findByNameIgnoreCase("admin")
             .orElseGet(() -> {
-                RoleEntity role = new RoleEntity();
+                Role role = new Role();
                 role.setName("admin");
                 return roleRepository.save(role);
             });
 
         // Create admin user
-        adminUser = new UserEntity();
+        adminUser = new User();
         adminUser.setEmail("admin@test.com");
         adminUser.setPasswordHash(passwordEncoder.encode("password"));
         adminUser.setCreatedAt(Instant.now());
@@ -99,7 +99,7 @@ class MonitorControllerIntegrationTest {
         adminUser = userRepository.save(adminUser);
 
         // Create regular user
-        regularUser = new UserEntity();
+        regularUser = new User();
         regularUser.setEmail("user@test.com");
         regularUser.setPasswordHash(passwordEncoder.encode("password"));
         regularUser.setCreatedAt(Instant.now());
@@ -107,7 +107,7 @@ class MonitorControllerIntegrationTest {
         regularUser = userRepository.save(regularUser);
 
         // Create monitors
-        adminMonitor = new MonitoredUrlEntity();
+        adminMonitor = new MonitoredUrl();
         adminMonitor.setOwner(adminUser);
         adminMonitor.setUrl("https://admin-site.com");
         adminMonitor.setLabel("Admin Monitor");
@@ -117,7 +117,7 @@ class MonitorControllerIntegrationTest {
         adminMonitor.setUpdatedAt(Instant.now());
         adminMonitor = monitoredUrlRepository.save(adminMonitor);
 
-        userMonitor = new MonitoredUrlEntity();
+        userMonitor = new MonitoredUrl();
         userMonitor.setOwner(regularUser);
         userMonitor.setUrl("https://user-site.com");
         userMonitor.setLabel("User Monitor");
@@ -284,7 +284,7 @@ class MonitorControllerIntegrationTest {
         assertFalse(deleted.isPresent());
     }
 
-    private void setSecurityContext(UserEntity user) {
+    private void setSecurityContext(User user) {
         SecurityUser securityUser = new SecurityUser(user);
         UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
             securityUser,
