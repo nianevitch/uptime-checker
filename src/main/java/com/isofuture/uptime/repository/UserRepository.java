@@ -12,13 +12,13 @@ import com.isofuture.uptime.entity.UserEntity;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByEmailIgnoreCase(String email);
     
-    @Query("SELECT u FROM UserEntity u WHERE u.deletedAt IS NULL")
+    @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN FETCH u.roles WHERE u.deletedAt IS NULL")
     List<UserEntity> findAllActive();
     
-    @Query("SELECT u FROM UserEntity u WHERE u.id = :id AND u.deletedAt IS NULL")
+    @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN FETCH u.roles WHERE u.id = :id AND u.deletedAt IS NULL")
     Optional<UserEntity> findActiveById(@Param("id") Long id);
     
-    @Query("SELECT u FROM UserEntity u WHERE u.email = :email AND u.deletedAt IS NULL")
+    @Query("SELECT DISTINCT u FROM UserEntity u LEFT JOIN FETCH u.roles WHERE LOWER(u.email) = LOWER(:email) AND u.deletedAt IS NULL")
     Optional<UserEntity> findActiveByEmailIgnoreCase(@Param("email") String email);
 }
 

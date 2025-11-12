@@ -130,8 +130,18 @@ public class UserService {
                         role.setName(roleName);
                         return roleRepository.save(role);
                     }))
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+            // Create a new HashSet to avoid Hibernate collection modification issues
             entity.setRoles(roles);
+        } else {
+            // Ensure roles collection is initialized if we're not updating it
+            // Access the collection to force Hibernate to load it within the transaction
+            Set<RoleEntity> currentRoles = entity.getRoles();
+            if (currentRoles != null) {
+                // Create a new HashSet with current roles to avoid Hibernate proxy issues
+                Set<RoleEntity> rolesCopy = new java.util.HashSet<>(currentRoles);
+                entity.setRoles(rolesCopy);
+            }
         }
 
         UserEntity saved = userRepository.save(entity);
@@ -150,6 +160,13 @@ public class UserService {
             throw new AccessDeniedException("You can only change your own password");
         }
 
+        // Ensure roles collection is initialized to avoid Hibernate proxy issues
+        Set<RoleEntity> currentRoles = entity.getRoles();
+        if (currentRoles != null) {
+            Set<RoleEntity> rolesCopy = new java.util.HashSet<>(currentRoles);
+            entity.setRoles(rolesCopy);
+        }
+
         entity.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(entity);
     }
@@ -166,6 +183,13 @@ public class UserService {
         SecurityUser currentUser = userContext.getCurrentUser();
         if (currentUser.getId().equals(id)) {
             throw new IllegalArgumentException("Cannot delete your own account");
+        }
+
+        // Ensure roles collection is initialized to avoid Hibernate proxy issues
+        Set<RoleEntity> currentRoles = entity.getRoles();
+        if (currentRoles != null) {
+            Set<RoleEntity> rolesCopy = new java.util.HashSet<>(currentRoles);
+            entity.setRoles(rolesCopy);
         }
 
         entity.setDeletedAt(Instant.now());

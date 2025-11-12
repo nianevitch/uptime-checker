@@ -22,10 +22,11 @@ public class SecurityUser implements UserDetails {
         this.id = entity.getId();
         this.email = entity.getEmail();
         this.passwordHash = entity.getPasswordHash();
-        this.roles = entity.getRoles()
-            .stream()
-            .map(role -> "ROLE_" + role.getName().toUpperCase())
-            .collect(Collectors.toUnmodifiableSet());
+        this.roles = entity.getRoles() != null 
+            ? entity.getRoles().stream()
+                .map(role -> "ROLE_" + role.getName().toUpperCase())
+                .collect(Collectors.toUnmodifiableSet())
+            : Set.of();
     }
 
     public Long getId() {

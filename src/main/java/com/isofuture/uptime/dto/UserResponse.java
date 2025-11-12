@@ -2,9 +2,10 @@ package com.isofuture.uptime.dto;
 
 import java.time.Instant;
 import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.HashSet;
 
 import com.isofuture.uptime.entity.UserEntity;
+import com.isofuture.uptime.entity.RoleEntity;
 
 public class UserResponse {
 
@@ -20,9 +21,25 @@ public class UserResponse {
     public UserResponse(UserEntity entity) {
         this.id = entity.getId();
         this.email = entity.getEmail();
-        this.roles = entity.getRoles().stream()
-            .map(role -> role.getName())
-            .collect(Collectors.toSet());
+        try {
+            Set<RoleEntity> entityRoles = entity.getRoles();
+            if (entityRoles != null && !entityRoles.isEmpty()) {
+                // Copy to a new HashSet to avoid Hibernate collection access issues
+                this.roles = new HashSet<>();
+                // Use toArray to avoid iterator issues with Hibernate collections
+                RoleEntity[] rolesArray = entityRoles.toArray(new RoleEntity[0]);
+                for (RoleEntity role : rolesArray) {
+                    if (role != null && role.getName() != null) {
+                        this.roles.add(role.getName());
+                    }
+                }
+            } else {
+                this.roles = java.util.Collections.emptySet();
+            }
+        } catch (Exception e) {
+            // Fallback: initialize empty set if there's any issue accessing roles
+            this.roles = java.util.Collections.emptySet();
+        }
         this.createdAt = entity.getCreatedAt();
         this.deletedAt = entity.getDeletedAt();
     }
