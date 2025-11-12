@@ -52,6 +52,7 @@ public class CheckService {
 
         ping.setInProgress(true);
         ping.setUpdatedAt(Instant.now());
+        // Don't save here - we'll save everything together in recordResult to avoid double saves
 
         Instant start = Instant.now();
         Integer httpCode = null;
@@ -76,37 +77,72 @@ public class CheckService {
         }
 
         double responseTime = Duration.between(start, Instant.now()).toMillis();
+        Instant checkedAt = Instant.now();
         log.debug("URL check response time: {}ms for {}", responseTime, ping.getUrl());
 
-        CheckResultUpdateRequest updateRequest = new CheckResultUpdateRequest();
-        updateRequest.setPingId(ping.getId());
-        updateRequest.setHttpCode(httpCode);
-        updateRequest.setErrorMessage(error);
-        updateRequest.setResponseTimeMs(responseTime);
-        updateRequest.setCheckedAt(Instant.now());
-
-        return recordResult(updateRequest, invokedByWorker);
+        // Record result using the same ping entity instance
+        return recordResult(ping, httpCode, error, responseTime, checkedAt, invokedByWorker);
     }
 
     @Transactional
     public CheckResultDto recordResult(CheckResultUpdateRequest request, boolean invokedByWorker) {
         log.debug("Recording check result for ping ID: {} (invokedByWorker: {})", request.getPingId(), invokedByWorker);
         Ping ping = loadAccessiblePing(request.getPingId(), invokedByWorker);
+        return recordResult(ping, request.getHttpCode(), request.getErrorMessage(), 
+            request.getResponseTimeMs(), request.getCheckedAt(), invokedByWorker);
+    }
 
+    private CheckResultDto recordResult(Ping ping, Integer httpCode, String errorMessage, 
+            Double responseTimeMs, Instant checkedAt, boolean invokedByWorker) {
+        log.debug("Recording check result for ping ID: {}", ping.getId());
+        
+        // Use the actual check time, or current time if not provided
+        Instant checkTime = checkedAt != null ? checkedAt : Instant.now();
+        Instant now = Instant.now();
+        
+        // Get frequency from the ping entity
+        Integer frequencyMinutes = ping.getFrequencyMinutes();
+        if (frequencyMinutes == null || frequencyMinutes <= 0) {
+            log.warn("Invalid frequency minutes for ping ID {}: {}, using default of 5", ping.getId(), frequencyMinutes);
+            frequencyMinutes = 5;
+        }
+        
+        // Calculate next check time: check time + frequency minutes
+        Instant nextCheckTime = checkTime.plus(frequencyMinutes, ChronoUnit.MINUTES);
+        
+        log.debug("Setting next check time for ping ID {}: check time={}, frequency={} minutes, next check={}, current time={}", 
+            ping.getId(), checkTime, frequencyMinutes, nextCheckTime, now);
+        
+        // Update ping entity
+        ping.setInProgress(false);
+        ping.setNextCheckAt(nextCheckTime);
+        ping.setUpdatedAt(now);
+        
+        // Create check result
         CheckResult result = new CheckResult();
         result.setPing(ping);
-        result.setHttpCode(request.getHttpCode());
-        result.setErrorMessage(request.getErrorMessage());
-        result.setResponseTimeMs(request.getResponseTimeMs());
-        result.setCheckedAt(request.getCheckedAt() != null ? request.getCheckedAt() : Instant.now());
-
-        ping.setInProgress(false);
-        ping.setNextCheckAt(Instant.now().plus(ping.getFrequencyMinutes(), ChronoUnit.MINUTES));
-        ping.setUpdatedAt(Instant.now());
-
+        result.setHttpCode(httpCode);
+        result.setErrorMessage(errorMessage);
+        result.setResponseTimeMs(responseTimeMs);
+        result.setCheckedAt(checkTime);
+        
+        // Save ping entity first (this persists nextCheckAt)
+        Ping savedPing = pingRepository.save(ping);
+        log.debug("Saved ping ID {} with nextCheckAt: {}", savedPing.getId(), savedPing.getNextCheckAt());
+        
+        // Verify the saved value matches what we set
+        if (savedPing.getNextCheckAt() == null || !savedPing.getNextCheckAt().equals(nextCheckTime)) {
+            log.error("WARNING: nextCheckAt mismatch for ping ID {}: expected {}, got {}", 
+                savedPing.getId(), nextCheckTime, savedPing.getNextCheckAt());
+        }
+        
+        // Save check result
         CheckResult saved = checkResultRepository.save(result);
-        log.info("Check result recorded: Ping ID {} - HTTP {} - Response time {}ms", 
-            ping.getId(), saved.getHttpCode(), saved.getResponseTimeMs());
+        
+        log.info("Check result recorded: Ping ID {} - HTTP {} - Response time {}ms - Next check: {} (in {} minutes)", 
+            ping.getId(), saved.getHttpCode() != null ? saved.getHttpCode() : "N/A", 
+            saved.getResponseTimeMs() != null ? saved.getResponseTimeMs() : 0.0, 
+            nextCheckTime, frequencyMinutes);
 
         CheckResultDto dto = new CheckResultDto();
         dto.setId(saved.getId());

@@ -113,14 +113,17 @@ public class PingService {
         entity.setLabel(request.getLabel());
         entity.setUrl(request.getUrl());
         entity.setFrequencyMinutes(request.getFrequencyMinutes());
+        // Only update nextCheckAt if it's null (don't overwrite existing scheduled checks)
         if (entity.getNextCheckAt() == null) {
             entity.setNextCheckAt(calculateNextCheck(request.getFrequencyMinutes()));
         }
         entity.setUpdatedAt(Instant.now());
 
         try {
-            PingResponse response = toResponse(entity, DEFAULT_RECENT_RESULTS);
-            log.info("Ping updated successfully: {} (ID: {})", entity.getUrl(), id);
+            // Save the entity to persist changes
+            Ping saved = pingRepository.save(entity);
+            PingResponse response = toResponse(saved, DEFAULT_RECENT_RESULTS);
+            log.info("Ping updated successfully: {} (ID: {})", saved.getUrl(), id);
             return response;
         } catch (Exception e) {
             log.error("Failed to update ping: {} - {}", id, e.getMessage(), e);

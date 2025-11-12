@@ -49,6 +49,7 @@ public class DataSeeder implements CommandLineRunner {
     @Transactional
     public void run(String... args) {
         fixTierCreatedAt();
+        // Migration is now handled by DatabaseMigration component (runs earlier)
         seedRoles();
         seedTiers();
         seedUsers();

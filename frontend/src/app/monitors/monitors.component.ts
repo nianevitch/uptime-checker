@@ -136,7 +136,8 @@ export class MonitorsComponent implements OnInit {
     this.pingService.execute(id).subscribe({
       next: result => {
         this.success = 'Check executed.';
-        this.updatePingAfterCheck(id, result);
+        // Update ping with check result and calculate next check time
+        this.updatePingAfterCheck(id, result, original);
       },
       error: err => {
         this.error = err.error?.error ?? 'Failed to execute check.';
@@ -144,6 +145,27 @@ export class MonitorsComponent implements OnInit {
           this.upsertPing(original);
         }
       }
+    });
+  }
+
+  private updatePingAfterCheck(id: number, result: CheckResult, original: Ping | undefined): void {
+    this.monitors = this.monitors.map(ping => {
+      if (ping.id !== id) {
+        return ping;
+      }
+      const updatedResults = [result, ...ping.recentResults].slice(0, 10);
+      
+      // Calculate next check time: checkedAt + frequencyMinutes
+      const checkedAt = new Date(result.checkedAt);
+      const frequencyMinutes = ping.frequencyMinutes || 5;
+      const nextCheckAt = new Date(checkedAt.getTime() + frequencyMinutes * 60 * 1000);
+      
+      return {
+        ...ping,
+        inProgress: false,
+        nextCheckAt: nextCheckAt.toISOString(),
+        recentResults: updatedResults
+      };
     });
   }
 
@@ -160,21 +182,6 @@ export class MonitorsComponent implements OnInit {
 
   private removePingFromList(id: number): void {
     this.monitors = this.monitors.filter(m => m.id !== id);
-  }
-
-  private updatePingAfterCheck(id: number, result: CheckResult): void {
-    this.monitors = this.monitors.map(ping => {
-      if (ping.id !== id) {
-        return ping;
-      }
-      const updatedResults = [result, ...ping.recentResults].slice(0, 10);
-      return {
-        ...ping,
-        inProgress: false,
-        nextCheckAt: result.checkedAt,
-        recentResults: updatedResults
-      };
-    });
   }
 
 }
