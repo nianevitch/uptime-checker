@@ -1,3 +1,11 @@
+-- ============================================================================
+-- UPTIME CHECKER DATABASE SCHEMA
+-- ============================================================================
+-- This file documents the database schema structure.
+-- Hibernate automatically creates/updates the schema (ddl-auto: update).
+-- This file is for reference only and is NOT executed automatically.
+-- ============================================================================
+
 DROP DATABASE IF EXISTS `uptime_user_management`;
 
 CREATE DATABASE IF NOT EXISTS `uptime_user_management`
@@ -17,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `email` VARCHAR(190) NOT NULL,
   `password_hash` VARCHAR(255) NOT NULL,
   `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `deleted_at` DATETIME DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uniq_users_email` (`email`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -44,11 +53,18 @@ INSERT INTO `roles` (`name`) VALUES ('user'), ('admin')
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);
 
 -- Seed baseline accounts
-INSERT INTO `users` (`email`, `password_hash`)
-VALUES
-  ('mary@invoken.com', '$2y$12$WfmbQ7DtoaVwwzcDxqeum.Xem515iGiEH381m/qdtokXI37rzjgMq'), -- password: pass
-  ('zookeeper@invoken.com', '$2y$12$WfmbQ7DtoaVwwzcDxqeum.Xem515iGiEH381m/qdtokXI37rzjgMq') -- password: pass
-ON DUPLICATE KEY UPDATE `email` = VALUES(`email`);
+-- NOTE: This schema.sql is for reference/documentation only.
+-- Hibernate will create the database schema automatically (ddl-auto: update).
+-- To create users, use the registration API: POST /api/auth/register
+-- 
+-- Example registration:
+-- curl -X POST "http://localhost:8080/api/auth/register" \
+--   -H "Content-Type: application/json" \
+--   -d '{"email":"mary@invoken.com","password":"pass"}'
+--
+-- Then assign admin role to zookeeper:
+-- INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`)
+-- SELECT u.id, r.id FROM users u JOIN roles r ON r.name = 'admin' WHERE u.email = 'zookeeper@invoken.com';
 
 INSERT IGNORE INTO `user_roles` (`user_id`, `role_id`)
 SELECT u.id, r.id

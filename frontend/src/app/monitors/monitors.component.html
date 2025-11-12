@@ -2,17 +2,20 @@
   <header class="monitors__header">
     <h1>Your monitors</h1>
     <div class="actions">
-      <button class="primary" (click)="startCreate()">New monitor</button>
+      <button class="primary" (click)="beginCreate()">New monitor</button>
     </div>
   </header>
 
   <div *ngIf="error" class="alert alert-error">{{ error }}</div>
   <div *ngIf="success" class="alert alert-success">{{ success }}</div>
 
-  <section class="form-card">
-    <h2>{{ selectedMonitor ? 'Edit monitor' : 'Add a monitor' }}</h2>
-    <form [formGroup]="form" (ngSubmit)="submit()">
-      <div class="grid">
+  <div class="modal-backdrop" *ngIf="showModal">
+    <div class="modal">
+      <header class="modal__header">
+        <h2>{{ selectedMonitor ? 'Edit monitor' : 'Add a monitor' }}</h2>
+        <button type="button" class="icon-button" (click)="closeModal()" aria-label="Close dialog">×</button>
+      </header>
+      <form [formGroup]="form" (ngSubmit)="submit()" class="modal__form">
         <label>
           URL
           <input type="url" formControlName="url" required />
@@ -25,12 +28,15 @@
           Frequency (minutes)
           <input type="number" formControlName="frequencyMinutes" min="1" max="1440" />
         </label>
-      </div>
-      <button type="submit" class="primary">
-        {{ selectedMonitor ? 'Update monitor' : 'Create monitor' }}
-      </button>
-    </form>
-  </section>
+        <div class="modal__actions">
+          <button type="button" class="secondary" (click)="closeModal()">Cancel</button>
+          <button type="submit" class="primary">
+            {{ selectedMonitor ? 'Update monitor' : 'Create monitor' }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   <section class="monitors-list">
     <div *ngIf="isLoading" class="loading">Loading monitors…</div>
@@ -39,50 +45,65 @@
       No monitors yet. Create one above to get started.
     </div>
 
-    <div *ngIf="!isLoading && monitors.length > 0" class="grid-list">
-      <article class="monitor-card" *ngFor="let monitor of monitors">
-        <header>
-          <h3>{{ monitor.label || monitor.url }}</h3>
-          <span class="badge" [class.badge--active]="monitor.inProgress">
-            {{ monitor.inProgress ? 'In progress' : 'Ready' }}
-          </span>
-        </header>
-        <p class="url">{{ monitor.url }}</p>
-        <dl>
-          <div>
-            <dt>Frequency</dt>
-            <dd>{{ monitor.frequencyMinutes }} min</dd>
-          </div>
-          <div>
-            <dt>Next check</dt>
-            <dd>{{ monitor.nextCheckAt ? (monitor.nextCheckAt | date: 'short') : '—' }}</dd>
-          </div>
-        </dl>
-        <section class="results">
-          <h4>Recent checks</h4>
-          <ul>
-            <li *ngFor="let result of monitor.recentResults">
-              <span>{{ result.checkedAt | date: 'short' }}</span>
-              <span *ngIf="result.httpCode !== undefined && result.httpCode !== null">HTTP {{ result.httpCode }}</span>
-              <span *ngIf="result.httpCode === undefined || result.httpCode === null">
-                {{ result.errorMessage ? 'Error' : 'No response' }}
+    <div *ngIf="!isLoading && monitors.length > 0" class="table-wrapper">
+      <table class="monitors-table">
+        <thead>
+          <tr>
+            <th scope="col">Monitor</th>
+            <th scope="col">Status</th>
+            <th scope="col">Frequency</th>
+            <th scope="col">Next check</th>
+            <th scope="col">Last result</th>
+            <th scope="col" class="actions-column">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let monitor of monitors">
+            <td>
+              <div class="monitor-name">
+                <span class="label">{{ monitor.label || '—' }}</span>
+                <span class="url">{{ monitor.url }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="status-pill" [class.status-pill--active]="monitor.inProgress">
+                {{ monitor.inProgress ? 'In progress' : 'Ready' }}
               </span>
-              <span *ngIf="result.responseTimeMs !== undefined && result.responseTimeMs !== null">
-                {{ result.responseTimeMs | number: '1.0-0' }} ms
-              </span>
-              <span class="error" *ngIf="result.errorMessage">{{ result.errorMessage }}</span>
-            </li>
-            <li *ngIf="monitor.recentResults.length === 0">No checks recorded yet.</li>
-          </ul>
-        </section>
-        <footer class="card-actions">
-          <button class="secondary" (click)="editMonitor(monitor)">Edit</button>
-          <button class="secondary" (click)="runCheck(monitor.id)" [disabled]="monitor.inProgress">
-            Run check
-          </button>
-          <button class="danger" (click)="deleteMonitor(monitor.id)">Delete</button>
-        </footer>
-      </article>
+            </td>
+            <td>{{ monitor.frequencyMinutes }} min</td>
+            <td>{{ monitor.nextCheckAt ? (monitor.nextCheckAt | date: 'short') : '—' }}</td>
+            <td>
+              <ng-container *ngIf="monitor.recentResults.length > 0; else noResult">
+                <div class="result-primary">
+                  {{ monitor.recentResults[0].checkedAt | date: 'short' }}
+                </div>
+                <div class="result-secondary">
+                  <span *ngIf="monitor.recentResults[0].httpCode !== undefined && monitor.recentResults[0].httpCode !== null">
+                    HTTP {{ monitor.recentResults[0].httpCode }}
+                  </span>
+                  <span *ngIf="monitor.recentResults[0].httpCode === undefined || monitor.recentResults[0].httpCode === null">
+                    {{ monitor.recentResults[0].errorMessage ? 'Error' : 'No response' }}
+                  </span>
+                  <span class="error" *ngIf="monitor.recentResults[0].errorMessage">
+                    {{ monitor.recentResults[0].errorMessage }}
+                  </span>
+                  <span *ngIf="monitor.recentResults[0].responseTimeMs !== undefined && monitor.recentResults[0].responseTimeMs !== null">
+                    • {{ monitor.recentResults[0].responseTimeMs | number: '1.0-0' }} ms
+                  </span>
+                </div>
+              </ng-container>
+              <ng-template #noResult>—</ng-template>
+            </td>
+            <td class="table-actions">
+              <button type="button" class="secondary" (click)="editMonitor(monitor)">Edit</button>
+              <button type="button" class="secondary" (click)="runCheck(monitor.id)">
+                Run check
+              </button>
+              <button type="button" class="danger" (click)="deleteMonitor(monitor.id)">Delete</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 </section>

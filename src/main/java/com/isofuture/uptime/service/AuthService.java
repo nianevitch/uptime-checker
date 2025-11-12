@@ -55,7 +55,7 @@ public class AuthService {
 
     @Transactional
     public LoginResponse register(RegisterRequest request) {
-        userRepository.findByEmailIgnoreCase(request.getEmail()).ifPresent(existing -> {
+        userRepository.findActiveByEmailIgnoreCase(request.getEmail()).ifPresent(existing -> {
             throw new IllegalArgumentException("Email already registered");
         });
 

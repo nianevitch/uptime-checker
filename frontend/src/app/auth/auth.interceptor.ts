@@ -6,7 +6,7 @@ import {
   HttpInterceptor,
   HttpRequest
 } from '@angular/common/http';
-import { catchError, Observable, throwError } from 'rxjs';
+import { catchError, EMPTY, Observable, throwError } from 'rxjs';
 import { Router } from '@angular/router';
 import { AuthService } from './auth.service';
 
@@ -38,6 +38,7 @@ export class AuthInterceptor implements HttpInterceptor {
     if (error instanceof HttpErrorResponse && error.status === 401) {
       this.authService.clearToken();
       this.router.navigate(['login']);
+      return EMPTY;
     }
     return throwError(() => error);
   }

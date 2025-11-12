@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
-import { Monitor, MonitorService } from './monitor.service';
+import { CheckResult, Monitor, MonitorService } from './monitor.service';
 import { AuthService } from '../auth/auth.service';
 import { Router } from '@angular/router';
 
@@ -15,8 +15,9 @@ export class MonitorsComponent implements OnInit {
   success: string | null = null;
   isLoading = false;
   selectedMonitor: Monitor | null = null;
+  showModal = false;
 
-  form = this.fb.group({
+  readonly form = this.fb.group({
     url: ['', [Validators.required]],
     label: [''],
     frequencyMinutes: [5, [Validators.required, Validators.min(1), Validators.max(1440)]]
@@ -51,21 +52,35 @@ export class MonitorsComponent implements OnInit {
     });
   }
 
-  startCreate(): void {
+  beginCreate(): void {
     this.selectedMonitor = null;
-    this.form.reset({
-      url: '',
-      label: '',
-      frequencyMinutes: 5
-    });
+    this.resetForm();
+    this.openModal();
   }
 
   editMonitor(monitor: Monitor): void {
     this.selectedMonitor = monitor;
-    this.form.reset({
-      url: monitor.url,
+    this.form.patchValue({
+      url: monitor.url ?? '',
       label: monitor.label ?? '',
-      frequencyMinutes: monitor.frequencyMinutes
+      frequencyMinutes: monitor.frequencyMinutes ?? 5
+    });
+    this.openModal();
+  }
+
+  closeModal(): void {
+    this.showModal = false;
+  }
+
+  private openModal(): void {
+    this.showModal = true;
+  }
+
+  private resetForm(): void {
+    this.form.reset({
+      url: '',
+      label: '',
+      frequencyMinutes: 5
     });
   }
 
@@ -74,16 +89,23 @@ export class MonitorsComponent implements OnInit {
       this.form.markAllAsTouched();
       return;
     }
-    const payload = this.form.value as { url: string; label?: string; frequencyMinutes: number };
+    const formValue = this.form.value;
+    const payload = {
+      url: formValue.url ?? '',
+      label: formValue.label ?? undefined,
+      frequencyMinutes: formValue.frequencyMinutes ?? 5
+    };
     const request = this.selectedMonitor
       ? this.monitorService.update(this.selectedMonitor.id, payload)
       : this.monitorService.create(payload);
     request.subscribe({
-      next: () => {
+      next: monitor => {
         this.success = this.selectedMonitor ? 'Monitor updated.' : 'Monitor created.';
         this.error = null;
-        this.startCreate();
-        this.loadMonitors();
+        this.upsertMonitor(monitor);
+        this.selectedMonitor = null;
+        this.closeModal();
+        this.resetForm();
       },
       error: err => {
         this.error = err.error?.error ?? 'Unable to save monitor.';
@@ -98,7 +120,7 @@ export class MonitorsComponent implements OnInit {
     this.monitorService.delete(id).subscribe({
       next: () => {
         this.success = 'Monitor deleted.';
-        this.loadMonitors();
+        this.removeMonitorFromList(id);
       },
       error: err => {
         this.error = err.error?.error ?? 'Unable to delete monitor.';
@@ -107,14 +129,51 @@ export class MonitorsComponent implements OnInit {
   }
 
   runCheck(id: number): void {
+    const original = this.monitors.find(m => m.id === id);
+    if (original) {
+      this.upsertMonitor({ ...original, inProgress: true });
+    }
     this.monitorService.execute(id).subscribe({
-      next: () => {
+      next: result => {
         this.success = 'Check executed.';
-        this.loadMonitors();
+        this.updateMonitorAfterCheck(id, result);
       },
       error: err => {
         this.error = err.error?.error ?? 'Failed to execute check.';
+        if (original) {
+          this.upsertMonitor(original);
+        }
       }
+    });
+  }
+
+  private upsertMonitor(monitor: Monitor): void {
+    const index = this.monitors.findIndex(m => m.id === monitor.id);
+    if (index > -1) {
+      this.monitors = this.monitors.map(existing =>
+        existing.id === monitor.id ? { ...existing, ...monitor } : existing
+      );
+    } else {
+      this.monitors = [monitor, ...this.monitors];
+    }
+  }
+
+  private removeMonitorFromList(id: number): void {
+    this.monitors = this.monitors.filter(m => m.id !== id);
+  }
+
+  private updateMonitorAfterCheck(id: number, result: CheckResult): void {
+    this.monitors = this.monitors.map(monitor => {
+      if (monitor.id !== id) {
+        return monitor;
+      }
+      const updatedResults = [result, ...monitor.recentResults].slice(0, 10);
+      return {
+        ...monitor,
+        inProgress: false,
+        nextCheckAt: result.checkedAt,
+        recentResults: updatedResults
+      };
     });
   }
 
