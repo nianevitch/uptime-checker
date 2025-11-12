@@ -24,8 +24,10 @@ import com.isofuture.uptime.dto.LoginRequest;
 import com.isofuture.uptime.dto.LoginResponse;
 import com.isofuture.uptime.dto.RegisterRequest;
 import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.RoleRepository;
+import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.JwtTokenProvider;
 import com.isofuture.uptime.security.SecurityUser;
@@ -44,6 +46,9 @@ class AuthServiceTest extends BaseTest {
     private RoleRepository roleRepository;
 
     @Mock
+    private TierRepository tierRepository;
+
+    @Mock
     private PasswordEncoder passwordEncoder;
 
     @Mock
@@ -54,6 +59,7 @@ class AuthServiceTest extends BaseTest {
 
     private User testUser;
     private Role userRole;
+    private Tier freeTier;
     private SecurityUser securityUser;
 
     @BeforeEach
@@ -62,6 +68,9 @@ class AuthServiceTest extends BaseTest {
         userRole = new Role();
         userRole.setId(1L);
         userRole.setName("user");
+        freeTier = new Tier();
+        freeTier.setId(1L);
+        freeTier.setName("free");
         securityUser = new SecurityUser(testUser);
     }
 
@@ -117,6 +126,7 @@ class AuthServiceTest extends BaseTest {
 
         when(userRepository.findActiveByEmailIgnoreCase("new@example.com")).thenReturn(Optional.empty());
         when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
+        when(tierRepository.findActiveByNameIgnoreCase("free")).thenReturn(Optional.of(freeTier));
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -133,6 +143,7 @@ class AuthServiceTest extends BaseTest {
         assertEquals("jwt-token", response.getToken());
         assertEquals("new@example.com", response.getEmail());
         verify(userRepository).findActiveByEmailIgnoreCase("new@example.com");
+        verify(tierRepository).findActiveByNameIgnoreCase("free");
         verify(passwordEncoder).encode("password123");
         verify(userRepository).save(any(User.class));
         verify(tokenProvider).generateToken(any(SecurityUser.class));
@@ -170,6 +181,12 @@ class AuthServiceTest extends BaseTest {
             role.setId(1L);
             return role;
         });
+        when(tierRepository.findActiveByNameIgnoreCase("free")).thenReturn(Optional.empty());
+        when(tierRepository.save(any(Tier.class))).thenAnswer(invocation -> {
+            Tier tier = invocation.getArgument(0);
+            tier.setId(1L);
+            return tier;
+        });
         when(passwordEncoder.encode("password123")).thenReturn("$2a$10$encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -184,6 +201,8 @@ class AuthServiceTest extends BaseTest {
         // Then
         assertNotNull(response);
         verify(roleRepository).save(any(Role.class));
+        verify(tierRepository).findActiveByNameIgnoreCase("free");
+        verify(tierRepository).save(any(Tier.class));
         verify(userRepository).save(any(User.class));
     }
 }

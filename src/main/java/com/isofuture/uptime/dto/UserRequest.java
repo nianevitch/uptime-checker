@@ -18,6 +18,8 @@ public class UserRequest {
 
     private Set<String> roles;
 
+    private Set<String> tiers;
+
     public String getEmail() {
         return email;
     }
@@ -40,6 +42,14 @@ public class UserRequest {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    public Set<String> getTiers() {
+        return tiers;
+    }
+
+    public void setTiers(Set<String> tiers) {
+        this.tiers = tiers;
     }
 }
 

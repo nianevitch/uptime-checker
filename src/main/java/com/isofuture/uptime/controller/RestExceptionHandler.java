@@ -49,7 +49,19 @@ public class RestExceptionHandler {
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidation(MethodArgumentNotValidException ex) {
-        log.debug("Validation error: {}", ex.getMessage());
+        // Avoid calling getMessage() if MethodParameter is null (common in tests)
+        // as it throws NullPointerException when trying to access parameter.getParameterIndex()
+        String message = null;
+        try {
+            message = ex.getMessage();
+        } catch (NullPointerException e) {
+            // MethodParameter is null, skip message logging
+        }
+        if (message != null) {
+            log.debug("Validation error: {}", message);
+        } else {
+            log.debug("Validation error: {} field errors", ex.getBindingResult().getFieldErrors().size());
+        }
         Map<String, Object> body = new HashMap<>();
         body.put("timestamp", Instant.now());
         body.put("status", HttpStatus.BAD_REQUEST.value());

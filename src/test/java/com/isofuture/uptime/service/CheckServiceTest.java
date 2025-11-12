@@ -419,7 +419,8 @@ class CheckServiceTest extends BaseTest {
         assertNotNull(result);
         assertEquals(500, result.getHttpCode());
         assertEquals("Internal Server Error", result.getErrorMessage());
-        verify(userContext).isAdmin();
+        // isAdmin() is called twice: once in log statement, once in if statement
+        verify(userContext, atLeast(1)).isAdmin();
         verify(monitoredUrlRepository).findById(1L);
     }
 }

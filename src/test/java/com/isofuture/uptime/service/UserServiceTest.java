@@ -24,9 +24,11 @@ import com.isofuture.uptime.dto.UserRequest;
 import com.isofuture.uptime.dto.UserResponse;
 import com.isofuture.uptime.dto.UserUpdateRequest;
 import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.exception.ResourceNotFoundException;
 import com.isofuture.uptime.repository.RoleRepository;
+import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.SecurityUser;
 
@@ -39,6 +41,9 @@ class UserServiceTest extends BaseTest {
 
     @Mock
     private RoleRepository roleRepository;
+
+    @Mock
+    private TierRepository tierRepository;
 
     @Mock
     private PasswordEncoder passwordEncoder;
@@ -54,6 +59,7 @@ class UserServiceTest extends BaseTest {
     private User testUser;
     private Role userRole;
     private Role adminRole;
+    private Tier freeTier;
 
     @BeforeEach
     void setUp() {
@@ -69,6 +75,10 @@ class UserServiceTest extends BaseTest {
         adminRole = new Role();
         adminRole.setId(2L);
         adminRole.setName("admin");
+        
+        freeTier = new Tier();
+        freeTier.setId(1L);
+        freeTier.setName("free");
     }
 
     @Test
@@ -168,6 +178,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.isAdmin()).thenReturn(true);
         when(userRepository.findActiveByEmailIgnoreCase("new@test.com")).thenReturn(Optional.empty());
         when(roleRepository.findByNameIgnoreCase("user")).thenReturn(Optional.of(userRole));
+        when(tierRepository.findActiveByNameIgnoreCase("free")).thenReturn(Optional.of(freeTier));
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -187,6 +198,7 @@ class UserServiceTest extends BaseTest {
         assertEquals("new@test.com", result.getEmail());
         verify(userContext).isAdmin();
         verify(userRepository).findActiveByEmailIgnoreCase("new@test.com");
+        verify(tierRepository).findActiveByNameIgnoreCase("free");
         verify(passwordEncoder).encode("password123");
         verify(userRepository).save(any(User.class));
     }
@@ -231,6 +243,7 @@ class UserServiceTest extends BaseTest {
         when(userContext.isAdmin()).thenReturn(true);
         when(userContext.getCurrentUser()).thenReturn(adminUser);
         when(userRepository.findActiveById(2L)).thenReturn(Optional.of(testUser));
+        when(userRepository.findActiveByEmailIgnoreCase("updated@test.com")).thenReturn(Optional.empty());
         when(userRepository.save(any(User.class))).thenReturn(testUser);
 
         UserUpdateRequest request = new UserUpdateRequest();
@@ -554,6 +567,7 @@ class UserServiceTest extends BaseTest {
             role.setId(3L);
             return role;
         });
+        when(tierRepository.findActiveByNameIgnoreCase("free")).thenReturn(Optional.of(freeTier));
         when(passwordEncoder.encode("password123")).thenReturn("encoded");
         when(userRepository.save(any(User.class))).thenAnswer(invocation -> {
             User user = invocation.getArgument(0);
@@ -573,6 +587,7 @@ class UserServiceTest extends BaseTest {
         assertNotNull(result);
         verify(roleRepository).findByNameIgnoreCase("custom");
         verify(roleRepository).save(any(Role.class));
+        verify(tierRepository).findActiveByNameIgnoreCase("free");
         verify(userRepository).save(any(User.class));
     }
 }

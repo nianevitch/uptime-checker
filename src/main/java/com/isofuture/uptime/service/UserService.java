@@ -17,9 +17,11 @@ import com.isofuture.uptime.dto.UserRequest;
 import com.isofuture.uptime.dto.UserResponse;
 import com.isofuture.uptime.dto.UserUpdateRequest;
 import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.exception.ResourceNotFoundException;
 import com.isofuture.uptime.repository.RoleRepository;
+import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.SecurityUser;
 
@@ -29,17 +31,20 @@ public class UserService {
     private static final Logger log = LoggerFactory.getLogger(UserService.class);
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final TierRepository tierRepository;
     private final PasswordEncoder passwordEncoder;
     private final UserContext userContext;
 
     public UserService(
         UserRepository userRepository,
         RoleRepository roleRepository,
+        TierRepository tierRepository,
         PasswordEncoder passwordEncoder,
         UserContext userContext
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.tierRepository = tierRepository;
         this.passwordEncoder = passwordEncoder;
         this.userContext = userContext;
     }
@@ -118,6 +123,29 @@ public class UserService {
             entity.getRoles().add(userRole);
         }
 
+        if (request.getTiers() != null && !request.getTiers().isEmpty()) {
+            log.debug("Assigning tiers to user: {}", request.getTiers());
+            Set<Tier> tiers = request.getTiers().stream()
+                .map(tierName -> tierRepository.findActiveByNameIgnoreCase(tierName)
+                    .orElseThrow(() -> {
+                        log.warn("Tier not found: {}", tierName);
+                        return new IllegalArgumentException("Tier not found: " + tierName);
+                    }))
+                .collect(Collectors.toSet());
+            entity.setTiers(tiers);
+        } else {
+            // Assign default tier if none specified (practically just one tier)
+            Tier defaultTier = tierRepository.findActiveByNameIgnoreCase("free")
+                .orElseGet(() -> {
+                    log.debug("Creating default 'free' tier");
+                    Tier tier = new Tier();
+                    tier.setName("free");
+                    tier.setCreatedAt(Instant.now());
+                    return tierRepository.save(tier);
+                });
+            entity.getTiers().add(defaultTier);
+        }
+
         User saved = userRepository.save(entity);
         log.info("User created successfully: {} (ID: {})", saved.getEmail(), saved.getId());
         return new UserResponse(saved);
@@ -173,6 +201,28 @@ public class UserService {
             }
         }
 
+        if (request.getTiers() != null && userContext.isAdmin()) {
+            log.debug("Updating tiers for user {}: {}", id, request.getTiers());
+            Set<Tier> tiers = request.getTiers().stream()
+                .map(tierName -> tierRepository.findActiveByNameIgnoreCase(tierName)
+                    .orElseThrow(() -> {
+                        log.warn("Tier not found: {}", tierName);
+                        return new IllegalArgumentException("Tier not found: " + tierName);
+                    }))
+                .collect(Collectors.toCollection(java.util.HashSet::new));
+            // Create a new HashSet to avoid Hibernate collection modification issues
+            entity.setTiers(tiers);
+        } else {
+            // Ensure tiers collection is initialized if we're not updating it
+            // Access the collection to force Hibernate to load it within the transaction
+            Set<Tier> currentTiers = entity.getTiers();
+            if (currentTiers != null) {
+                // Create a new HashSet with current tiers to avoid Hibernate proxy issues
+                Set<Tier> tiersCopy = new java.util.HashSet<>(currentTiers);
+                entity.setTiers(tiersCopy);
+            }
+        }
+
         User saved = userRepository.save(entity);
         log.info("User updated successfully: {} (ID: {})", saved.getEmail(), saved.getId());
         return new UserResponse(saved);
@@ -200,6 +250,13 @@ public class UserService {
         if (currentRoles != null) {
             Set<Role> rolesCopy = new java.util.HashSet<>(currentRoles);
             entity.setRoles(rolesCopy);
+        }
+
+        // Ensure tiers collection is initialized to avoid Hibernate proxy issues
+        Set<Tier> currentTiers = entity.getTiers();
+        if (currentTiers != null) {
+            Set<Tier> tiersCopy = new java.util.HashSet<>(currentTiers);
+            entity.setTiers(tiersCopy);
         }
 
         entity.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
@@ -250,6 +307,13 @@ public class UserService {
         if (currentRoles != null) {
             Set<Role> rolesCopy = new java.util.HashSet<>(currentRoles);
             entity.setRoles(rolesCopy);
+        }
+
+        // Ensure tiers collection is initialized to avoid Hibernate proxy issues
+        Set<Tier> currentTiers = entity.getTiers();
+        if (currentTiers != null) {
+            Set<Tier> tiersCopy = new java.util.HashSet<>(currentTiers);
+            entity.setTiers(tiersCopy);
         }
 
         // SOFT DELETE: Set deletedAt timestamp - record is NEVER physically deleted

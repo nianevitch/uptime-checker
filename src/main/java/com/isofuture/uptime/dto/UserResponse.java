@@ -6,12 +6,14 @@ import java.util.HashSet;
 
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.Tier;
 
 public class UserResponse {
 
     private Long id;
     private String email;
     private Set<String> roles;
+    private Set<String> tiers;
     private Instant createdAt;
     private Instant deletedAt;
 
@@ -40,6 +42,25 @@ public class UserResponse {
             // Fallback: initialize empty set if there's any issue accessing roles
             this.roles = java.util.Collections.emptySet();
         }
+        try {
+            Set<Tier> entityTiers = entity.getTiers();
+            if (entityTiers != null && !entityTiers.isEmpty()) {
+                // Copy to a new HashSet to avoid Hibernate collection access issues
+                this.tiers = new HashSet<>();
+                // Use toArray to avoid iterator issues with Hibernate collections
+                Tier[] tiersArray = entityTiers.toArray(new Tier[0]);
+                for (Tier tier : tiersArray) {
+                    if (tier != null && tier.getName() != null) {
+                        this.tiers.add(tier.getName());
+                    }
+                }
+            } else {
+                this.tiers = java.util.Collections.emptySet();
+            }
+        } catch (Exception e) {
+            // Fallback: initialize empty set if there's any issue accessing tiers
+            this.tiers = java.util.Collections.emptySet();
+        }
         this.createdAt = entity.getCreatedAt();
         this.deletedAt = entity.getDeletedAt();
     }
@@ -66,6 +87,14 @@ public class UserResponse {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    public Set<String> getTiers() {
+        return tiers;
+    }
+
+    public void setTiers(Set<String> tiers) {
+        this.tiers = tiers;
     }
 
     public Instant getCreatedAt() {

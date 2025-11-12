@@ -15,8 +15,10 @@ import com.isofuture.uptime.dto.LoginRequest;
 import com.isofuture.uptime.dto.LoginResponse;
 import com.isofuture.uptime.dto.RegisterRequest;
 import com.isofuture.uptime.entity.Role;
+import com.isofuture.uptime.entity.Tier;
 import com.isofuture.uptime.entity.User;
 import com.isofuture.uptime.repository.RoleRepository;
+import com.isofuture.uptime.repository.TierRepository;
 import com.isofuture.uptime.repository.UserRepository;
 import com.isofuture.uptime.security.JwtTokenProvider;
 import com.isofuture.uptime.security.SecurityUser;
@@ -28,6 +30,7 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final TierRepository tierRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
 
@@ -35,12 +38,14 @@ public class AuthService {
         AuthenticationManager authenticationManager,
         UserRepository userRepository,
         RoleRepository roleRepository,
+        TierRepository tierRepository,
         PasswordEncoder passwordEncoder,
         JwtTokenProvider tokenProvider
     ) {
         this.authenticationManager = authenticationManager;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.tierRepository = tierRepository;
         this.passwordEncoder = passwordEncoder;
         this.tokenProvider = tokenProvider;
     }
@@ -74,12 +79,22 @@ public class AuthService {
                 return roleRepository.save(role);
             });
 
+        Tier freeTier = tierRepository.findActiveByNameIgnoreCase("free")
+            .orElseGet(() -> {
+                log.debug("Creating default 'free' tier during registration");
+                Tier tier = new Tier();
+                tier.setName("free");
+                tier.setCreatedAt(Instant.now());
+                return tierRepository.save(tier);
+            });
+
         User entity = new User();
         entity.setEmail(request.getEmail());
         entity.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         Instant now = Instant.now();
         entity.setCreatedAt(now);
         entity.getRoles().add(userRole);
+        entity.getTiers().add(freeTier);
 
         User saved = userRepository.save(entity);
         SecurityUser securityUser = new SecurityUser(saved);

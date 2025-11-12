@@ -44,7 +44,7 @@ logging:
     org.springframework.transaction: ${LOG_LEVEL_SPRING_TRANSACTION:WARN}
     # Hibernate/JPA
     org.hibernate: ${LOG_LEVEL_HIBERNATE:WARN}
-    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:DEBUG}
+    org.hibernate.SQL: ${LOG_LEVEL_HIBERNATE_SQL:INFO}
     org.hibernate.type.descriptor.sql.BasicBinder: ${LOG_LEVEL_HIBERNATE_PARAMS:TRACE}
     # Database
     org.springframework.jdbc: ${LOG_LEVEL_JDBC:WARN}

@@ -72,6 +72,24 @@ public class User {
     )
     private Set<Role> roles = new HashSet<>();
 
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(
+        name = "user_tier",
+        indexes = {
+            @Index(name = "IX_user_tier_user_id", columnList = "user_id"),
+            @Index(name = "IX_user_tier_tier_id", columnList = "tier_id")
+        },
+        joinColumns = @JoinColumn(
+            name = "user_id",
+            foreignKey = @ForeignKey(name = "FK_user_tier_user_id")
+        ),
+        inverseJoinColumns = @JoinColumn(
+            name = "tier_id",
+            foreignKey = @ForeignKey(name = "FK_user_tier_tier_id")
+        )
+    )
+    private Set<Tier> tiers = new HashSet<>();
+
     public Long getId() {
         return id;
     }
@@ -110,6 +128,14 @@ public class User {
 
     public void setRoles(Set<Role> roles) {
         this.roles = roles;
+    }
+
+    public Set<Tier> getTiers() {
+        return tiers;
+    }
+
+    public void setTiers(Set<Tier> tiers) {
+        this.tiers = tiers;
     }
 
     public Instant getDeletedAt() {
