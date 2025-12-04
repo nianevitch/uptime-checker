@@ -15,6 +15,9 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.bson.BsonMaximumSizeExceededException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.isofuture.uptime.exception.ResourceNotFoundException;
 
@@ -44,6 +47,23 @@ public class RestExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFound(ResourceNotFoundException ex) {
         log.debug("Resource not found: {}", ex.getMessage());
+        return error(HttpStatus.NOT_FOUND, ex);
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleNoResourceFound(NoResourceFoundException ex) {
+        String resourcePath = ex.getResourcePath();
+        // If it's an API path, return 404 Not Found instead of treating it as a static resource error
+        if (resourcePath != null && resourcePath.startsWith("/api/")) {
+            log.debug("API endpoint not found: {}", resourcePath);
+            Map<String, Object> body = new HashMap<>();
+            body.put("timestamp", Instant.now());
+            body.put("status", HttpStatus.NOT_FOUND.value());
+            body.put("error", "API endpoint not found: " + resourcePath);
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+        }
+        // For non-API paths, log as debug (likely a frontend route)
+        log.debug("Static resource not found: {}", resourcePath);
         return error(HttpStatus.NOT_FOUND, ex);
     }
 
@@ -83,6 +103,26 @@ public class RestExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
         log.warn("Illegal state: {}", ex.getMessage());
         return error(HttpStatus.BAD_REQUEST, ex);
+    }
+
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleMaxUploadSizeExceeded(MaxUploadSizeExceededException ex) {
+        log.warn("Maximum upload size exceeded: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.PAYLOAD_TOO_LARGE.value());
+        body.put("error", "File size exceeds the maximum allowed size. Maximum file size is 50MB.");
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
+    }
+
+    @ExceptionHandler(BsonMaximumSizeExceededException.class)
+    public ResponseEntity<Map<String, Object>> handleBsonMaximumSizeExceeded(BsonMaximumSizeExceededException ex) {
+        log.error("MongoDB document size exceeded: {}", ex.getMessage());
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", Instant.now());
+        body.put("status", HttpStatus.INTERNAL_SERVER_ERROR.value());
+        body.put("error", "File is too large to process. Please contact support if this error persists.");
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 
     @ExceptionHandler(Exception.class)

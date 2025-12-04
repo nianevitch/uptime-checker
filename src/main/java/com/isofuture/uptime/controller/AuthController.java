@@ -2,7 +2,9 @@ package com.isofuture.uptime.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,11 +29,29 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         log.debug("POST /api/auth/login - Login request for: {}", request.getEmail());
-        LoginResponse response = authService.login(request);
-        log.info("POST /api/auth/login - Login successful for: {}", request.getEmail());
-        return ResponseEntity.ok(response);
+        try {
+            LoginResponse response = authService.login(request);
+            log.info("POST /api/auth/login - Login successful for: {}", request.getEmail());
+            return ResponseEntity.ok(response);
+        } catch (BadCredentialsException e) {
+            log.warn("POST /api/auth/login - Bad credentials for: {}", request.getEmail());
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(new ErrorResponse("Invalid email or password"));
+        }
+    }
+
+    private static class ErrorResponse {
+        private final String error;
+
+        public ErrorResponse(String error) {
+            this.error = error;
+        }
+
+        public String getError() {
+            return error;
+        }
     }
 
     @PostMapping("/register")

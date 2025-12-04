@@ -6,3 +6,5 @@ frontend/dist/
 /target/
 frontend/.angular/cache/
 logs/
+*.log
+database/full_dataset.sql

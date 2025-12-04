@@ -5,7 +5,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 import org.springframework.boot.CommandLineRunner;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,94 +26,30 @@ public class DataSeeder implements CommandLineRunner {
     private final TierRepository tierRepository;
     private final PingRepository pingRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JdbcTemplate jdbcTemplate;
 
     public DataSeeder(
         UserRepository userRepository,
         RoleRepository roleRepository,
         TierRepository tierRepository,
         PingRepository pingRepository,
-        PasswordEncoder passwordEncoder,
-        JdbcTemplate jdbcTemplate
+        PasswordEncoder passwordEncoder
     ) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.tierRepository = tierRepository;
         this.pingRepository = pingRepository;
         this.passwordEncoder = passwordEncoder;
-        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     @Transactional
     public void run(String... args) {
-        fixTierCreatedAt();
-        // Migration is now handled by DatabaseMigration component (runs earlier)
         seedRoles();
         seedTiers();
         seedUsers();
         seedPings();
     }
     
-    /**
-     * Fixes existing tiers with NULL or invalid created_at values.
-     * This migration ensures all tiers have a valid created_at timestamp.
-     * This is necessary when the tier table was created before the created_at
-     * column was added, or when existing rows have invalid datetime values
-     * (e.g., '0000-00-00 00:00:00' which MySQL 8.0+ rejects).
-     * 
-     * Uses native SQL to fix invalid datetime values that Hibernate cannot read.
-     * Hibernate's ddl-auto: update will handle column creation/alteration.
-     */
-    private void fixTierCreatedAt() {
-        try {
-            // Check if tier table exists
-            jdbcTemplate.execute("SELECT 1 FROM `tier` LIMIT 1");
-            
-            // Update NULL and invalid datetime values using native SQL
-            // This works even if Hibernate cannot read the rows due to invalid datetime values
-            // We use COALESCE to handle different invalid datetime formats
-            int updated = jdbcTemplate.update(
-                "UPDATE `tier` SET `created_at` = CURRENT_TIMESTAMP(6) " +
-                "WHERE `created_at` IS NULL " +
-                "   OR CAST(`created_at` AS CHAR) = '0000-00-00 00:00:00' " +
-                "   OR `created_at` < '1970-01-01 00:00:00'"
-            );
-            
-            if (updated > 0) {
-                System.out.println("Fixed " + updated + " tier(s) with NULL or invalid created_at values via SQL");
-            }
-        } catch (Exception e) {
-            // Table might not exist yet, or column doesn't exist
-            // Hibernate will create it via ddl-auto: update
-            // Ignore and continue - the column will be created as nullable
-        }
-        
-        // Now fix any remaining NULL values using entity update
-        // This ensures all tiers have a valid created_at after Hibernate creates the column
-        try {
-            List<Tier> allTiers = tierRepository.findAllIncludingDeleted();
-            Instant now = Instant.now();
-            boolean entityUpdated = false;
-            
-            for (Tier tier : allTiers) {
-                if (tier.getCreatedAt() == null) {
-                    tier.setCreatedAt(now);
-                    tierRepository.save(tier);
-                    entityUpdated = true;
-                }
-            }
-            
-            if (entityUpdated) {
-                System.out.println("Fixed remaining tiers with NULL created_at values via entity update");
-            }
-        } catch (Exception e) {
-            // If Hibernate can't read tiers due to invalid datetime values,
-            // the native SQL update above should have fixed them
-            // Ignore and continue
-        }
-    }
-
     private void seedRoles() {
         if (roleRepository.count() == 0) {
             Role userRole = new Role();

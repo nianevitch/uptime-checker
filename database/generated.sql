@@ -1,0 +1,3 @@
+-- SQL generation placeholder
+-- User requested a downloadable .sql file but full content huge.
+-- Provide a basic scaffold.

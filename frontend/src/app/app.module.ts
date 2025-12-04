@@ -8,11 +8,13 @@ import { AppComponent } from './app.component';
 import { LoginComponent } from './auth/login.component';
 import { MonitorsComponent } from './monitors/monitors.component';
 import { UserProfileComponent } from './user/user-profile.component';
+import { CsvIngestionComponent } from './csv-ingestion/csv-ingestion.component';
 import { AuthInterceptor } from './auth/auth.interceptor';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent },
   { path: 'monitors', component: MonitorsComponent },
+  { path: 'csv-ingestion', component: CsvIngestionComponent },
   { path: '', redirectTo: 'monitors', pathMatch: 'full' },
   { path: '**', redirectTo: 'monitors' }
 ];
@@ -22,7 +24,8 @@ const routes: Routes = [
     AppComponent,
     LoginComponent,
     MonitorsComponent,
-    UserProfileComponent
+    UserProfileComponent,
+    CsvIngestionComponent
   ],
   imports: [
     BrowserModule,

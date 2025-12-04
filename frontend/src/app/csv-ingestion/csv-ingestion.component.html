@@ -1,0 +1,484 @@
+<section class="csv-ingestion">
+  <header class="csv-ingestion__header">
+    <h1>CSV Files</h1>
+    <div class="actions">
+      <button class="primary" (click)="openUploadModal()">Upload CSV</button>
+    </div>
+  </header>
+
+  <div *ngIf="error" class="alert alert-error">{{ error }}</div>
+  <div *ngIf="success" class="alert alert-success">{{ success }}</div>
+
+  <!-- Upload Modal -->
+  <div class="modal-backdrop" *ngIf="showUploadModal">
+    <div class="modal modal--large">
+      <header class="modal__header">
+        <h2>Upload CSV Files</h2>
+        <button type="button" class="icon-button" (click)="closeUploadModal()" aria-label="Close dialog">×</button>
+      </header>
+      <div class="modal__content">
+        <div 
+          class="file-upload-area"
+          [class.file-upload-area--dragover]="isDragOver"
+          (dragover)="onDragOver($event)"
+          (dragleave)="onDragLeave($event)"
+          (drop)="onDrop($event)"
+        >
+          <input
+            type="file"
+            id="fileInput"
+            multiple
+            accept=".csv"
+            (change)="onFileSelected($event)"
+            style="display: none"
+          />
+          <label for="fileInput" class="file-upload-label">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="17 8 12 3 7 8"></polyline>
+              <line x1="12" y1="3" x2="12" y2="15"></line>
+            </svg>
+            <span>Click to select CSV files or drag and drop</span>
+            <span class="file-upload-hint">You can select multiple files</span>
+          </label>
+        </div>
+
+        <div *ngIf="selectedFiles.length > 0" class="selected-files">
+          <h3>Selected Files ({{ selectedFiles.length }})</h3>
+          <div class="file-list">
+            <div *ngFor="let file of selectedFiles; let i = index" class="file-item">
+              <div class="file-info">
+                <span class="file-name">{{ file.name }}</span>
+                <span class="file-size">{{ formatFileSize(file.size) }}</span>
+              </div>
+              <button
+                type="button"
+                class="icon-button icon-button--small"
+                (click)="removeFile(i)"
+                aria-label="Remove file"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div *ngIf="isUploading" class="upload-progress">
+          <div *ngFor="let file of selectedFiles" class="upload-item">
+            <span>{{ file.name }}</span>
+            <span *ngIf="uploadProgress.get(file.name)" class="upload-success">✓ Uploaded</span>
+            <span *ngIf="!uploadProgress.get(file.name) && uploadProgress.has(file.name)" class="upload-pending">⏳ Uploading...</span>
+            <span *ngIf="!uploadProgress.has(file.name)" class="upload-pending">⏳ Waiting...</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="secondary" (click)="closeUploadModal()" [disabled]="isUploading">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="primary"
+          (click)="uploadFiles()"
+          [disabled]="selectedFiles.length === 0 || isUploading"
+        >
+          {{ isUploading ? 'Uploading...' : 'Upload ' + (selectedFiles.length > 1 ? selectedFiles.length + ' Files' : 'File') }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Files Table -->
+  <section class="files-list">
+    <div *ngIf="isLoading" class="loading">Loading CSV files…</div>
+
+    <div *ngIf="!isLoading && files.length === 0" class="empty">
+      No CSV files yet. Upload one above to get started.
+    </div>
+
+    <div *ngIf="!isLoading && files.length > 0" class="table-wrapper">
+      <table class="files-table">
+        <thead>
+          <tr>
+            <th scope="col">File Name</th>
+            <th scope="col">Columns</th>
+            <th scope="col">Rows</th>
+            <th scope="col">Uploaded By</th>
+            <th scope="col">Uploaded At</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let file of files">
+            <td>
+              <div class="file-name-cell">
+                <span class="file-name">{{ file.fileName }}</span>
+                <span class="file-id">ID: {{ file.id }}</span>
+              </div>
+            </td>
+            <td>{{ file.columnCount }}</td>
+            <td>{{ file.rowCount }}</td>
+            <td>{{ file.ingestedBy || '—' }}</td>
+            <td>{{ formatDate(file.ingestedAt) }}</td>
+            <td>
+              <div class="action-buttons">
+                <button
+                  type="button"
+                  class="icon-button icon-button--small"
+                  (click)="viewFileData(file.id)"
+                  aria-label="View file data"
+                  title="View data"
+                >
+                  👁️
+                </button>
+                <button
+                  type="button"
+                  class="icon-button icon-button--small icon-button--danger"
+                  (click)="deleteFile(file.id, file.fileName)"
+                  aria-label="Delete file"
+                  [disabled]="isDeleting === file.id"
+                  title="Delete file"
+                >
+                  {{ isDeleting === file.id ? '⏳' : '🗑️' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Data Grid Modal -->
+  <div class="modal-backdrop" *ngIf="showDataModal">
+    <div class="modal modal--xlarge">
+      <header class="modal__header">
+        <h2>{{ fileData?.fileName }}</h2>
+        <button type="button" class="icon-button" (click)="closeDataModal()" aria-label="Close dialog">×</button>
+      </header>
+      <div class="modal__content">
+        <div *ngIf="isLoadingData" class="loading">Loading file data…</div>
+        
+        <div *ngIf="!isLoadingData && fileData" class="data-grid-container">
+          <!-- Pagination Controls (Top) -->
+          <div class="pagination-controls">
+            <div class="pagination-info">
+              <span>Showing {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, getTotalRows()) }} of {{ getTotalRows() }} rows</span>
+            </div>
+            <div class="pagination-actions">
+              <label for="pageSizeSelect">Rows per page:</label>
+              <select id="pageSizeSelect" [value]="pageSize" (change)="onPageSizeChange(+$any($event.target).value)" class="page-size-select">
+                <option *ngFor="let size of pageSizeOptions" [value]="size">{{ size }}</option>
+              </select>
+              <button type="button" class="icon-button" (click)="previousPage()" [disabled]="currentPage === 1" aria-label="Previous page">‹</button>
+              <span class="page-info">Page {{ currentPage }} of {{ getTotalPages() }}</span>
+              <button type="button" class="icon-button" (click)="nextPage()" [disabled]="currentPage === getTotalPages()" aria-label="Next page">›</button>
+            </div>
+          </div>
+
+          <!-- Duplicate Groups Summary -->
+          <div *ngIf="getDuplicateGroups().length > 0" class="duplicate-summary">
+            <div class="duplicate-summary-header">
+              <h3>Duplicate Groups ({{ getDuplicateGroups().length }})</h3>
+              <div class="merge-strategy-controls">
+                <label for="mergeStrategy">Merge Strategy:</label>
+                <select 
+                  id="mergeStrategy" 
+                  [(ngModel)]="mergeStrategy"
+                  class="strategy-select"
+                  [disabled]="isAutoMerging"
+                >
+                  <option value="merge-delete">Merge-Delete (Remove All Duplicates)</option>
+                  <option value="auto-merge">Auto-Merge (More Data Wins)</option>
+                </select>
+                <button 
+                  type="button" 
+                  class="primary small"
+                  (click)="autoMergeAllDuplicates()"
+                  [disabled]="isAutoMerging"
+                >
+                  <span *ngIf="!isAutoMerging">Auto-Merge All</span>
+                  <span *ngIf="isAutoMerging">Merging...</span>
+                </button>
+              </div>
+            </div>
+            <div class="duplicate-groups">
+              <div *ngFor="let group of getPaginatedDuplicateGroups()" class="duplicate-group">
+                <span class="group-identity">{{ group.identity }}</span>
+                <span class="group-count">{{ group.indices.length }} rows</span>
+                <button 
+                  type="button" 
+                  class="secondary small"
+                  (click)="openMergeModal(group.indices)"
+                >
+                  Merge
+                </button>
+              </div>
+            </div>
+            <!-- Pagination for duplicate groups -->
+            <div *ngIf="getDuplicateGroups().length > duplicateGroupsPageSize" class="pagination">
+              <button 
+                type="button" 
+                class="secondary small"
+                (click)="previousDuplicateGroupsPage()"
+                [disabled]="duplicateGroupsPage === 1"
+              >
+                Previous
+              </button>
+              <span class="page-info">
+                Page {{ duplicateGroupsPage }} of {{ getDuplicateGroupsTotalPages() }}
+                ({{ getDuplicateGroups().length }} total)
+              </span>
+              <select 
+                [(ngModel)]="duplicateGroupsPageSize" 
+                (change)="onDuplicateGroupsPageSizeChange(duplicateGroupsPageSize)"
+                class="page-size-select"
+              >
+                <option *ngFor="let size of duplicateGroupsPageSizeOptions" [value]="size">{{ size }}</option>
+              </select>
+              <button 
+                type="button" 
+                class="secondary small"
+                (click)="nextDuplicateGroupsPage()"
+                [disabled]="duplicateGroupsPage >= getDuplicateGroupsTotalPages()"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+
+          <!-- Data Grid -->
+          <div class="data-grid-wrapper">
+            <table class="data-grid">
+              <thead>
+                <tr>
+                  <th class="status-column">Status</th>
+                  <th *ngFor="let header of getHeaders()" 
+                      (click)="sort(header)"
+                      [class.sortable]="true"
+                      [class.sorted]="sortColumn === header">
+                    <div class="header-content">
+                      <span>{{ header }}</span>
+                      <span class="sort-icon">{{ getSortIcon(header) }}</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let row of getPaginatedRows(); let i = index" 
+                    [class.row-duplicate]="getRowStatus(row) === 'duplicate'"
+                    [class.row-processed]="getRowStatus(row) === 'processed'"
+                    [class.row-pending]="getRowStatus(row) === 'pending'">
+                  <td class="status-cell">
+                    <span [class]="'status-badge ' + getStatusClass(getRowStatus(row))">
+                      {{ getStatusLabel(getRowStatus(row)) }}
+                    </span>
+                  </td>
+                  <td *ngFor="let header of getHeaders()">
+                    {{ row[header] || '—' }}
+                  </td>
+                </tr>
+                <tr *ngIf="getPaginatedRows().length === 0">
+                  <td [attr.colspan]="getHeaders().length + 1" class="empty-cell">No data available</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination Controls (Bottom) -->
+          <div class="pagination-controls">
+            <div class="pagination-info">
+              <span>Showing {{ (currentPage - 1) * pageSize + 1 }} - {{ Math.min(currentPage * pageSize, getTotalRows()) }} of {{ getTotalRows() }} rows</span>
+            </div>
+            <div class="pagination-actions">
+              <button type="button" class="icon-button" (click)="previousPage()" [disabled]="currentPage === 1" aria-label="Previous page">‹</button>
+              <span class="page-info">Page {{ currentPage }} of {{ getTotalPages() }}</span>
+              <button type="button" class="icon-button" (click)="nextPage()" [disabled]="currentPage === getTotalPages()" aria-label="Next page">›</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="secondary" (click)="closeDataModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Merge Modal -->
+  <div class="modal-backdrop" *ngIf="showMergeModal">
+    <div class="modal modal--merge">
+      <header class="modal__header">
+        <h2>Merge Duplicate Rows</h2>
+        <button type="button" class="icon-button" (click)="closeMergeModal()" aria-label="Close dialog">×</button>
+      </header>
+      <div class="modal__content">
+        <div *ngIf="duplicateRows.length > 0">
+          <p class="merge-info">Select values for each field to create the merged row. The selected rows will be replaced with this merged row.</p>
+          
+          <!-- Merge Settings -->
+          <div class="merge-settings">
+            <label class="setting-checkbox">
+              <input 
+                type="checkbox" 
+                [(ngModel)]="skipIdenticalFields"
+                (change)="onSkipIdenticalFieldsChange()"
+              />
+              <span>Skip identical fields (automatically use identical values)</span>
+            </label>
+            <p class="setting-hint" *ngIf="skipIdenticalFields && identicalFields.size > 0">
+              {{ identicalFields.size }} field(s) with identical values will be automatically included: 
+              <span class="identical-fields-list">{{ Array.from(identicalFields).join(', ') }}</span>
+            </p>
+            
+          </div>
+          
+          <!-- Side-by-Side Comparison View -->
+          <div class="merge-comparison-view">
+            <h3>Compare and Select Values</h3>
+            <div class="comparison-table-wrapper">
+              <table class="comparison-table">
+                <thead>
+                  <tr>
+                    <th class="field-name-col">Field</th>
+                    <th *ngFor="let dupRow of duplicateRows; let i = index" class="row-col">
+                      Row {{ i + 1 }}
+                      <button 
+                        type="button" 
+                        class="use-row-button"
+                        (click)="useRowForAll(i)"
+                        title="Use all values from this row"
+                      >
+                        Use All
+                      </button>
+                    </th>
+                    <th class="merged-col">Merged Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let header of getHeaders()" 
+                      [class.field-hidden]="skipIdenticalFields && isFieldIdentical(header)"
+                      [class.field-identical-row]="isFieldIdentical(header)">
+                    <td class="field-name-cell">
+                      <strong>{{ header }}</strong>
+                      <span *ngIf="isFieldIdentical(header)" class="field-identical-badge">(same)</span>
+                    </td>
+                    <td *ngFor="let dupRow of duplicateRows; let i = index" class="row-value-cell">
+                      <input
+                        type="text"
+                        [value]="getRowValue(i, header)"
+                        (input)="updateRowValue(i, header, $any($event.target).value)"
+                        (blur)="updateMergedFieldFromRow(header, i)"
+                        class="row-value-input"
+                        [title]="'Row ' + (i + 1) + ' value - click to edit'"
+                      />
+                      <button
+                        type="button"
+                        class="use-value-button"
+                        (click)="updateMergedFieldFromRow(header, i)"
+                        title="Use this value for merged row"
+                      >
+                        ✓
+                      </button>
+                      <button
+                        type="button"
+                        class="save-field-button"
+                        (click)="saveFieldValue(i, header)"
+                        [disabled]="isSavingField(i, header) || !hasFieldChanged(i, header)"
+                        [title]="'Save this field to row ' + (i + 1)"
+                      >
+                        <span *ngIf="!isSavingField(i, header)">💾</span>
+                        <span *ngIf="isSavingField(i, header)" class="spinner">⟳</span>
+                      </button>
+                    </td>
+                    <td class="merged-value-cell">
+                      <input
+                        type="text"
+                        [value]="getMergedFieldValue(header)"
+                        (input)="updateMergedField(header, $any($event.target).value)"
+                        class="merged-value-input"
+                        [placeholder]="'Enter or select value for ' + header"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div *ngIf="skipIdenticalFields && identicalFields.size > 0" class="identical-fields-summary">
+              <h4>Hidden Identical Fields ({{ identicalFields.size }})</h4>
+              <div class="identical-fields-grid">
+                <div *ngFor="let header of Array.from(identicalFields)" class="identical-field-item">
+                  <strong>{{ header }}:</strong> {{ getMergedFieldValue(header) || '(empty)' }}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="secondary" (click)="closeMergeModal()" [disabled]="isMerging || isSaving">Cancel</button>
+        <button 
+          type="button" 
+          class="primary" 
+          (click)="saveRowChanges()" 
+          [disabled]="!hasUnsavedChanges || isSaving"
+          *ngIf="hasUnsavedChanges"
+        >
+          {{ isSaving ? 'Saving...' : 'Save Changes' }}
+        </button>
+        <button 
+          type="button" 
+          class="primary" 
+          (click)="mergeRows()" 
+          [disabled]="isMerging || duplicateRows.length < 2 || hasUnsavedChanges"
+        >
+          {{ isMerging ? 'Merging...' : 'Merge Rows' }}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Deduplication Prompt Dialog -->
+  <div class="modal-backdrop" *ngIf="showDeduplicatePrompt">
+    <div class="modal">
+      <header class="modal__header">
+        <h2>Duplicates Resolved</h2>
+        <button type="button" class="icon-button" (click)="closeDeduplicatePrompt()" aria-label="Close dialog">×</button>
+      </header>
+      <div class="modal__content">
+        <p>
+          The rows are no longer duplicates of each other after your update. 
+          {{ resolvedDuplicateIndices.length }} row(s) can be marked as deduplicated (processed).
+        </p>
+        <p>Would you like to mark these rows as deduplicated?</p>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="secondary" (click)="closeDeduplicatePrompt()">Cancel</button>
+        <button type="button" class="primary" (click)="markRowsAsDeduplicated()">Mark as Deduplicated</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Duplicate Resolved Dialog -->
+  <div class="modal-backdrop" *ngIf="showDuplicateResolvedDialog">
+    <div class="modal modal--small">
+      <header class="modal__header">
+        <h2>Duplicates Resolved</h2>
+      </header>
+      <div class="modal__content">
+        <p>Your changes have resolved the duplicate status for these rows. The rows are no longer marked as duplicates.</p>
+        <p>Would you like to:</p>
+        <ul>
+          <li><strong>Continue merging:</strong> Keep the merge modal open to review or make additional changes</li>
+          <li><strong>Done:</strong> Close the merge modal and return to the data view</li>
+        </ul>
+      </div>
+      <div class="modal__actions">
+        <button type="button" class="secondary" (click)="onDuplicateResolvedDone()">Done</button>
+        <button type="button" class="primary" (click)="onDuplicateResolvedContinue()">Continue Merging</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+
